@@ -1,0 +1,10 @@
+{
+  "name": "react-modul-3",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix vite-project run dev -- --host 0.0.0.0",
+    "build": "npm --prefix vite-project run build",
+    "preview": "npm --prefix vite-project run preview -- --host 0.0.0.0",
+    "start": "npm --prefix vite-project run dev -- --host 0.0.0.0"
+  }
+}

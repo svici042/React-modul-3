@@ -1,0 +1,942 @@
+/* Pagrindinis viso ekrano simuliatoriaus ir 3D vaizdo sluoksnis. */
+.simulator {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #02080c;
+  overflow: hidden;
+  user-select: none;
+}
+.viewport,
+.ocean-canvas,
+.scene-fallback {
+  position: absolute !important;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+.vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at 50% 52%,
+      transparent 25%,
+      rgba(0, 5, 8, 0.16) 58%,
+      rgba(0, 4, 7, 0.7) 115%
+    ),
+    linear-gradient(rgba(0, 21, 27, 0.1), transparent 30%);
+}
+.vignette::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.045;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0 3px,
+    #9ffff3 4px
+  );
+}
+/* Viršutinė navigacija ir svarbiausios misijos reikšmės. */
+.topbar {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 70px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 0 22px;
+  background: linear-gradient(
+    180deg,
+    rgba(1, 10, 14, 0.96),
+    rgba(2, 11, 15, 0.74)
+  );
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 39px;
+  height: 39px;
+  color: var(--cyan);
+  font: 500 10px var(--mono);
+  letter-spacing: 0.08em;
+  border: 1px solid var(--line-bright);
+  clip-path: polygon(
+    15% 0,
+    85% 0,
+    100% 15%,
+    100% 85%,
+    85% 100%,
+    15% 100%,
+    0 85%,
+    0 15%
+  );
+}
+.brand b {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+}
+.brand small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font: 8px var(--mono);
+  letter-spacing: 0.08em;
+}
+.top-metrics {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+.top-metrics > span {
+  min-width: 122px;
+  padding: 0 22px;
+  border-left: 1px solid var(--line);
+}
+.top-metrics small {
+  display: block;
+  color: var(--muted);
+  font: 8px var(--mono);
+  letter-spacing: 0.18em;
+}
+.top-metrics b {
+  display: block;
+  margin-top: 3px;
+  color: var(--cyan-bright);
+  font: 500 14px var(--mono);
+}
+.top-metrics .link {
+  border-right: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: auto;
+}
+.link i,
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 8px var(--teal);
+}
+.top-metrics .link b {
+  font-size: 9px;
+  margin: 0;
+  color: #a5c8c6;
+}
+.topbar nav {
+  justify-self: end;
+  display: flex;
+  gap: 6px;
+}
+.topbar nav button {
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font: 10px var(--mono);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.topbar nav button:hover {
+  color: var(--cyan);
+  border-color: var(--line);
+  background: rgba(79, 207, 194, 0.06);
+}
+.topbar nav span {
+  margin-left: 5px;
+}
+/* Bendra kairiojo telemetrijos ir dešiniojo misijos skydelių išvaizda. */
+.panel {
+  position: absolute;
+  z-index: 3;
+  top: 88px;
+  width: 260px;
+  padding: 16px;
+  background: linear-gradient(145deg, var(--panel-strong), var(--panel));
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(9px);
+}
+.panel::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: -1px;
+  width: 28px;
+  height: 1px;
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+}
+.telemetry-panel {
+  left: 18px;
+}
+.mission-panel {
+  right: 18px;
+  width: 286px;
+}
+.panel-heading,
+.subheading,
+.sonar-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #a5c2c1;
+  font: 500 9px var(--mono);
+  letter-spacing: 0.15em;
+}
+.panel-heading {
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--line);
+}
+.panel-heading b {
+  color: var(--cyan);
+}
+.meter {
+  margin-top: 18px;
+}
+.meter-row {
+  display: flex;
+  justify-content: space-between;
+  font: 10px var(--mono);
+  color: #9bb1b1;
+}
+.meter-row strong {
+  font-size: 11px;
+  color: var(--text);
+}
+.meter-track {
+  height: 4px;
+  margin-top: 7px;
+  background: #11272b;
+  overflow: hidden;
+}
+.meter-track i {
+  display: block;
+  height: 100%;
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+}
+.meter-track .amber {
+  background: var(--amber);
+}
+.meter-track .red {
+  background: var(--red);
+}
+.instrument-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 19px 0 0;
+}
+.instrument-grid > div {
+  padding: 12px 4px;
+  border-top: 1px solid var(--line);
+}
+.instrument-grid > div:nth-child(odd) {
+  border-right: 1px solid var(--line);
+}
+.instrument-grid dt {
+  color: var(--muted);
+  font: 8px var(--mono);
+  letter-spacing: 0.12em;
+}
+.instrument-grid dd {
+  margin: 5px 0 0;
+  color: #e4f1f0;
+  font: 500 15px var(--mono);
+}
+.instrument-grid small {
+  font-size: 8px;
+  color: var(--muted);
+}
+.instrument-grid .good {
+  font-size: 11px;
+  color: var(--teal);
+}
+.simulation-note {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 8px;
+  color: #607d80;
+}
+.eyebrow {
+  margin: 17px 0 7px;
+  color: var(--teal);
+  font: 500 8px var(--mono);
+  letter-spacing: 0.16em;
+}
+.mission-panel h2 {
+  margin: 0;
+  max-width: 240px;
+  font-size: 17px;
+  line-height: 1.35;
+  font-weight: 500;
+}
+.progress-steps {
+  display: flex;
+  gap: 4px;
+  margin: 17px 0;
+}
+.progress-steps i {
+  height: 3px;
+  flex: 1;
+  background: #193034;
+}
+.progress-steps .done {
+  background: #387f79;
+}
+.progress-steps .active {
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+}
+.research-log,
+.event-log {
+  margin-top: 17px;
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
+}
+.subheading b {
+  color: var(--cyan);
+  font-size: 8px;
+}
+.research-log p,
+.event-log p {
+  margin: 9px 0 0;
+  color: #a2b9b8;
+  font: 8px/1.4 var(--mono);
+}
+.research-log .muted {
+  color: #597477;
+}
+.event-log time {
+  margin-right: 8px;
+  color: #527174;
+}
+.scan-action,
+.ping-button {
+  width: 100%;
+  border: 1px solid var(--line-bright);
+  background: rgba(70, 205, 187, 0.08);
+  padding: 9px;
+  color: var(--cyan);
+  font: 9px var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.scan-action:hover,
+.ping-button:hover {
+  background: rgba(70, 205, 187, 0.17);
+}
+/* Apatiniame kairiajame kampe esantis sonaro instrumentas. */
+.sonar {
+  position: absolute;
+  z-index: 3;
+  left: 18px;
+  bottom: 18px;
+  width: 220px;
+  padding: 12px 14px 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
+}
+.sonar-head b {
+  font-size: 8px;
+  color: var(--teal);
+}
+.sonar-scope {
+  position: relative;
+  width: 154px;
+  aspect-ratio: 1;
+  margin: 10px auto;
+  border: 1px solid var(--line-bright);
+  border-radius: 50%;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle,
+      rgba(33, 122, 116, 0.08) 0 1px,
+      transparent 2px 32%,
+      rgba(77, 171, 162, 0.14) 33% 34%,
+      transparent 35% 65%,
+      rgba(77, 171, 162, 0.14) 66% 67%,
+      transparent 68%
+    ),
+    #031014;
+}
+.sonar-sweep {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0 305deg,
+    rgba(83, 238, 213, 0.28) 345deg,
+    rgba(100, 255, 230, 0.75)
+  );
+  animation: sweep 4s linear infinite;
+  transform-origin: center;
+}
+.sonar-line {
+  position: absolute;
+  background: rgba(92, 179, 173, 0.15);
+}
+.sonar-line.north {
+  width: 1px;
+  height: 100%;
+  left: 50%;
+}
+.sonar-line.east {
+  height: 1px;
+  width: 100%;
+  top: 50%;
+}
+.north-label,
+.range-label {
+  position: absolute;
+  font: 7px var(--mono);
+  color: #6d9695;
+}
+.north-label {
+  top: 4px;
+  left: 48%;
+}
+.range-label {
+  bottom: 14px;
+  right: 10px;
+}
+.ownship {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 8px;
+  transform: translate(-50%, -50%);
+  background: var(--cyan);
+  clip-path: polygon(50% 0, 100% 100%, 50% 75%, 0 100%);
+  box-shadow: 0 0 8px var(--cyan);
+}
+.contact {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: #9fe9df;
+  box-shadow: 0 0 8px #9fe9df;
+}
+.contact.hazard {
+  background: var(--amber);
+}
+.contact.target {
+  border: 1px solid var(--teal);
+  background: transparent;
+  width: 8px;
+  height: 8px;
+}
+.ping-button {
+  padding: 7px;
+}
+.ping-button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+@keyframes sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.bottom-telemetry {
+  position: absolute;
+  z-index: 3;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  color: var(--text);
+  font-family: var(--mono);
+}
+.bottom-telemetry > span {
+  min-width: 92px;
+}
+.bottom-telemetry small {
+  display: block;
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: 0.14em;
+}
+.bottom-telemetry b {
+  font-size: 18px;
+  font-weight: 500;
+}
+.bottom-telemetry em {
+  font-size: 7px;
+  color: var(--muted);
+  font-style: normal;
+  margin-left: 4px;
+}
+.drive-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.drive-indicator > span {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+.drive-indicator kbd,
+.controls-grid kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 23px;
+  border: 1px solid #36585b;
+  background: #0a1b20;
+  color: #8babad;
+  font: 9px var(--mono);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.04);
+}
+.drive-indicator i {
+  width: 23px;
+}
+.touch-controls {
+  display: none;
+}
+.world-label span {
+  display: block;
+  white-space: nowrap;
+  padding: 3px 6px;
+  background: rgba(2, 14, 18, 0.7);
+  border-left: 1px solid var(--cyan);
+  color: #97cbc7;
+  font: 6px var(--mono);
+  letter-spacing: 0.1em;
+  pointer-events: none;
+}
+.critical-banner {
+  position: absolute;
+  z-index: 5;
+  top: 81px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  background: rgba(63, 22, 20, 0.9);
+  border: 1px solid rgba(250, 107, 98, 0.5);
+  color: #ff9b94;
+  font: 10px var(--mono);
+  letter-spacing: 0.08em;
+}
+.collision-alert {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: inset 0 0 90px rgba(255, 57, 48, 0.8);
+  transition: opacity 0.12s;
+}
+.collision-alert.visible {
+  opacity: 1;
+}
+.scene-loading,
+.scene-fallback {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  color: var(--muted);
+  background: radial-gradient(circle, #082028, #02080c);
+  font: 10px var(--mono);
+  letter-spacing: 0.1em;
+}
+.scene-loading i {
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-top-color: var(--cyan);
+  border-radius: 50%;
+  animation: sweep 1.2s linear infinite;
+}
+.scene-fallback {
+  z-index: 2;
+  text-align: center;
+}
+.scene-fallback b {
+  color: var(--amber);
+  font-size: 14px;
+}
+.scene-fallback p {
+  max-width: 400px;
+  line-height: 1.6;
+}
+/* Bendras misijos, pauzės, valdymo ir rezultatų dialogų sluoksnis. */
+.modal-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 7, 10, 0.73);
+  backdrop-filter: blur(12px);
+}
+.modal {
+  position: relative;
+  width: min(500px, 100%);
+  padding: 30px;
+  background: linear-gradient(
+    145deg,
+    rgba(9, 28, 34, 0.98),
+    rgba(3, 14, 19, 0.99)
+  );
+  border: 1px solid var(--line-bright);
+  box-shadow: 0 25px 80px #000;
+}
+.modal::before,
+.modal::after {
+  content: "";
+  position: absolute;
+  width: 40px;
+  height: 1px;
+  background: var(--cyan);
+  top: -1px;
+}
+.modal::before {
+  left: 0;
+}
+.modal::after {
+  right: 0;
+}
+.modal h1 {
+  margin: 10px 0 15px;
+  font-size: 32px;
+  line-height: 1.1;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+.modal h2 {
+  margin: 10px 0 18px;
+  font-size: 24px;
+  font-weight: 500;
+}
+.intro-mark {
+  float: right;
+  width: 62px;
+  height: 62px;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  border: 1px solid var(--line-bright);
+  color: var(--cyan);
+  font: 12px var(--mono);
+  clip-path: polygon(
+    16% 0,
+    84% 0,
+    100% 16%,
+    100% 84%,
+    84% 100%,
+    16% 100%,
+    0 84%,
+    0 16%
+  );
+}
+.intro-mark span {
+  display: block;
+  color: var(--muted);
+  font-size: 7px;
+  margin-top: 4px;
+}
+.intro-copy {
+  max-width: 420px;
+  color: #91a9a9;
+  font-size: 12px;
+  line-height: 1.75;
+}
+.briefing-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 24px 0;
+  border-block: 1px solid var(--line);
+}
+.briefing-stats span {
+  padding: 13px 9px;
+  color: var(--muted);
+  font: 8px var(--mono);
+  border-right: 1px solid var(--line);
+}
+.briefing-stats span:last-child {
+  border: 0;
+}
+.briefing-stats b {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--text);
+  font-size: 14px;
+}
+.primary,
+.modal-actions button {
+  border: 1px solid var(--line);
+  background: transparent;
+  padding: 11px 16px;
+  color: #a9c2c1;
+  font: 10px var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.primary {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: #021615;
+  font-weight: 500;
+}
+.primary:hover {
+  background: #6ce5d3;
+}
+.full {
+  width: 100%;
+}
+.legal {
+  text-align: center;
+  margin: 12px 0 -10px;
+  color: #526d70;
+  font: 7px var(--mono);
+}
+.modal-close {
+  position: absolute;
+  right: 16px;
+  top: 14px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 24px;
+  cursor: pointer;
+}
+.controls-grid {
+  display: grid;
+  grid-template-columns: 94px 1fr;
+  gap: 8px 15px;
+  margin: 20px 0;
+}
+.controls-grid > span {
+  display: flex;
+  gap: 5px;
+  justify-content: flex-end;
+}
+.controls-grid p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+.controls-grid b {
+  display: block;
+  color: var(--text);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.settings-list {
+  display: grid;
+  gap: 1px;
+  margin: 20px 0;
+  background: var(--line);
+}
+.settings-list label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px;
+  background: #07181d;
+  color: #9db2b1;
+  font-size: 11px;
+}
+.settings-list select {
+  min-width: 130px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  background: #031116;
+  color: var(--text);
+  text-transform: capitalize;
+}
+.toggle-row input {
+  accent-color: var(--teal);
+}
+.modal-actions {
+  display: flex;
+  gap: 7px;
+  justify-content: flex-end;
+}
+.end-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin: 8px 0 18px;
+  border: 1px solid var(--red);
+  color: var(--red);
+  font: 25px var(--mono);
+  border-radius: 50%;
+}
+.end-icon.success {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+.reduced-motion .sonar-sweep {
+  animation: none;
+  transform: rotate(20deg);
+}
+@media (max-width: 1000px) {
+  .top-metrics > span {
+    min-width: 100px;
+    padding: 0 12px;
+  }
+  .mission-panel {
+    width: 250px;
+  }
+  .panel {
+    width: 220px;
+  }
+  .topbar nav span {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  .topbar {
+    height: 58px;
+    padding: 0 11px;
+    grid-template-columns: 1fr auto;
+  }
+  .top-metrics {
+    display: none;
+  }
+  .brand small {
+    display: none;
+  }
+  .telemetry-panel {
+    top: 70px;
+    left: 10px;
+    width: 180px;
+    padding: 11px;
+  }
+  .mission-panel {
+    top: 70px;
+    right: 10px;
+    width: 200px;
+    padding: 11px;
+  }
+  .instrument-grid > div:nth-child(n + 3),
+  .event-log {
+    display: none;
+  }
+  .sonar {
+    left: 10px;
+    bottom: 10px;
+    width: 164px;
+    padding: 9px;
+  }
+  .sonar-scope {
+    width: 112px;
+  }
+  .bottom-telemetry {
+    bottom: 13px;
+    gap: 10px;
+  }
+  .drive-indicator {
+    display: none;
+  }
+  .bottom-telemetry > span {
+    min-width: 68px;
+  }
+  .bottom-telemetry b {
+    font-size: 14px;
+  }
+  .touch-controls {
+    display: flex;
+    position: absolute;
+    z-index: 5;
+    right: 10px;
+    bottom: 10px;
+    gap: 8px;
+  }
+  .touch-controls > div {
+    display: grid;
+    grid-template-columns: repeat(2, 40px);
+    gap: 4px;
+  }
+  .touch-controls button {
+    height: 38px;
+    border: 1px solid var(--line-bright);
+    background: rgba(3, 17, 22, 0.8);
+    color: var(--cyan);
+    font: 9px var(--mono);
+    touch-action: none;
+  }
+  .panel h2 {
+    font-size: 13px;
+  }
+  .research-log {
+    display: none;
+  }
+}
+@media (max-width: 520px) and (orientation: portrait) {
+  .telemetry-panel {
+    display: none;
+  }
+  .mission-panel {
+    left: 10px;
+    right: auto;
+    top: 67px;
+    width: calc(100% - 20px);
+  }
+  .sonar {
+    bottom: 76px;
+  }
+  .bottom-telemetry {
+    display: none;
+  }
+  .modal {
+    padding: 22px;
+  }
+  .modal h1 {
+    font-size: 25px;
+  }
+  .briefing-stats {
+    grid-template-columns: 1fr;
+  }
+  .briefing-stats span {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .modal-actions {
+    flex-direction: column;
+  }
+  .topbar nav button:nth-child(1) {
+    display: none;
+  }
+}
+.objective-distance {
+  margin: 10px 0 0;
+  color: var(--amber);
+  font: 8px var(--mono);
+  letter-spacing: 0.12em;
+}
