@@ -9,6 +9,9 @@ export default function MissionPanel() {
   const events = useSimulationStore((s) => s.events);
   const scan = useSimulationStore((s) => s.scanNearby);
   const position = useSimulationStore((s) => s.position);
+
+  // --- Active objective and nearest research target ---
+
   const targetId = [
     "beacon",
     "beacon",
@@ -18,6 +21,15 @@ export default function MissionPanel() {
     "extraction",
   ][mission.step];
   const target = OBJECTS.find((object) => object.id === targetId);
+  const nearestSample = OBJECTS.filter(
+    (object) => object.type === "sample" && !samples.includes(object.id),
+  )
+    .map((object) => ({
+      ...object,
+      distance: distance3(position, object.position),
+    }))
+    .sort((a, b) => a.distance - b.distance)[0];
+
   return (
     <aside className="panel mission-panel" aria-label="Mission objectives">
       <div className="panel-heading">
@@ -45,9 +57,16 @@ export default function MissionPanel() {
         ))}
       </div>
       {mission.step === 4 && (
-        <button className="scan-action" onClick={scan}>
-          Scan nearby point <kbd>X</kbd>
-        </button>
+        <>
+          <p className="scan-hint">
+            {nearestSample?.distance < 10
+              ? `IN RANGE · ${nearestSample.label}`
+              : `NEAREST SAMPLE · ${nearestSample?.distance.toFixed(0) ?? "—"} m`}
+          </p>
+          <button className="scan-action" onClick={scan}>
+            Scan nearby point <kbd>X</kbd>
+          </button>
+        </>
       )}
       <section className="research-log">
         <div className="subheading">

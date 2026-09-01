@@ -12,6 +12,8 @@ beforeEach(() =>
       mission: { status: "intro", step: 0 },
       showControls: false,
       showSettings: false,
+      controlsReturnStatus: null,
+      input: {},
     }),
   ),
 );
@@ -34,5 +36,23 @@ describe("application controls", () => {
     act(() => useSimulationStore.getState().pause());
     fireEvent.click(screen.getByRole("button", { name: /restart mission/i }));
     expect(useSimulationStore.getState().mission.step).toBe(0);
+  });
+
+  it("pauses behind the controls guide and restores gameplay on close", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /begin descent/i }));
+    const controlsTrigger = screen.getByTitle(/open controls guide/i);
+
+    useSimulationStore.setState({ input: { forward: true } });
+    controlsTrigger.focus();
+    fireEvent.click(controlsTrigger);
+
+    expect(useSimulationStore.getState().mission.status).toBe("paused");
+    expect(useSimulationStore.getState().input).toEqual({});
+
+    fireEvent.click(screen.getByRole("button", { name: /close controls/i }));
+
+    expect(useSimulationStore.getState().mission.status).toBe("running");
+    expect(controlsTrigger).toHaveFocus();
   });
 });

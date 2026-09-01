@@ -2,19 +2,23 @@ import { SONAR_COOLDOWN, SONAR_RANGE, WORLD } from "./constants";
 
 export const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
-// Kompaso reikšmę visada laikome tarp 0 ir 359 laipsnių.
-// Dviguba liekana reikalinga todėl, kad JavaScript neigiamą skaičių palieka neigiamą.
+// --- Heading and telemetry models ---
+
+// Keep compass headings between 0 and 359 degrees. The double modulo handles
+// JavaScript's negative remainder behavior.
 export const normalizeHeading = (degrees) => ((degrees % 360) + 360) % 360;
 
-// Supaprastintas vandens slėgio modelis: maždaug 1 baras kas 10,06 metro.
+// Approximate water pressure as one additional bar every 10.06 meters.
 export const pressureFromDepth = (depth) => 1 + Math.max(0, depth) / 10.06;
 
-// Gilėjant temperatūra palaipsniui mažėja, tačiau nenukrenta žemiau nustatytos ribos.
+// Lower temperature with depth while retaining a safe simulation floor.
 export const temperatureFromDepth = (depth) =>
   3.1 - Math.min(2.4, Math.max(0, depth - 3700) * 0.009);
 
-// Energijos sąnaudos priklauso nuo judėjimo, vertikalios traukos, šviesų ir sonaro.
-// `dt` užtikrina vienodą rezultatą skirtingu kadrų dažniu veikiančiuose įrenginiuose.
+// --- Resource and damage calculations ---
+
+// Energy use combines propulsion, vertical thrust, lights, and sonar. Applying
+// `dt` keeps consumption consistent across different frame rates.
 export function energyUse({
   speed = 0,
   verticalSpeed = 0,
@@ -32,7 +36,7 @@ export function energyUse({
   );
 }
 
-// Lengvas prisilietimas žalos nedaro, o labai stiprus smūgis ribojamas iki 18 taškų.
+// Ignore gentle contact and cap a single severe impact at 18 damage points.
 export const collisionDamage = (impactSpeed) =>
   clamp((Math.abs(impactSpeed) - 2) * 1.8, 0, 18);
 export const clampVitals = ({ battery, hull }) => ({
@@ -49,7 +53,9 @@ export const tickCooldown = (cooldown, dt) =>
 export const seabedHeight = (x, z) =>
   2.5 + Math.sin(x * 0.055) * 1.7 + Math.cos(z * 0.04) * 1.25;
 
-// Neleidžiame aparatui išskristi už misijos zonos arba pralįsti pro jūros dugną.
+// --- World-space helpers ---
+
+// Keep the vehicle inside the mission area and above the procedural seabed.
 export function constrainPosition(position) {
   const [x, y, z] = position;
   const floor = seabedHeight(x, z) + WORLD.minY;
@@ -60,7 +66,7 @@ export function constrainPosition(position) {
   ];
 }
 
-// Pasaulio koordinates paverčiame santykiniu kampu sonaro ekrane.
+// Convert world coordinates into an angle relative to the vehicle's heading.
 export function bearingToContact(origin, headingRadians, target) {
   return (
     Math.atan2(target[0] - origin[0], -(target[2] - origin[2])) - headingRadians

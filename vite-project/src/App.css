@@ -1,4 +1,4 @@
-/* Pagrindinis viso ekrano simuliatoriaus ir 3D vaizdo sluoksnis. */
+/* Full-screen simulator shell and 3D viewport layers. */
 .simulator {
   position: relative;
   width: 100%;
@@ -39,7 +39,7 @@
     #9ffff3 4px
   );
 }
-/* Viršutinė navigacija ir svarbiausios misijos reikšmės. */
+/* Top navigation and primary mission telemetry. */
 .topbar {
   position: absolute;
   z-index: 4;
@@ -160,7 +160,7 @@
 .topbar nav span {
   margin-left: 5px;
 }
-/* Bendra kairiojo telemetrijos ir dešiniojo misijos skydelių išvaizda. */
+/* Shared styling for the telemetry and mission side panels. */
 .panel {
   position: absolute;
   z-index: 3;
@@ -342,7 +342,7 @@
 .ping-button:hover {
   background: rgba(70, 205, 187, 0.17);
 }
-/* Apatiniame kairiajame kampe esantis sonaro instrumentas. */
+/* Active sonar instrument anchored to the lower-left corner. */
 .sonar {
   position: absolute;
   z-index: 3;
@@ -456,6 +456,10 @@
   opacity: 0.38;
   cursor: not-allowed;
 }
+.ping-button[aria-disabled="true"] {
+  border-color: rgba(233, 173, 97, 0.35);
+  color: var(--amber);
+}
 @keyframes sweep {
   to {
     transform: rotate(360deg);
@@ -515,11 +519,41 @@
   font: 9px var(--mono);
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.04);
 }
+.drive-indicator kbd.active {
+  color: #021615;
+  background: var(--cyan);
+  border-color: var(--cyan-bright);
+  box-shadow: 0 0 10px rgba(132, 229, 223, 0.55);
+}
 .drive-indicator i {
   width: 23px;
 }
 .touch-controls {
   display: none;
+}
+.touch-controls button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.scan-hint {
+  margin: 0 0 7px;
+  color: var(--cyan);
+  font: 8px var(--mono);
+  letter-spacing: 0.08em;
+}
+.gameplay-notice {
+  position: absolute;
+  z-index: 6;
+  left: 50%;
+  bottom: 102px;
+  transform: translateX(-50%);
+  padding: 8px 13px;
+  color: var(--cyan-bright);
+  background: rgba(3, 20, 25, 0.92);
+  border: 1px solid var(--line-bright);
+  font: 9px var(--mono);
+  letter-spacing: 0.1em;
+  pointer-events: none;
 }
 .world-label span {
   display: block;
@@ -588,7 +622,7 @@
   max-width: 400px;
   line-height: 1.6;
 }
-/* Bendras misijos, pauzės, valdymo ir rezultatų dialogų sluoksnis. */
+/* Shared overlay layer for mission, pause, controls, and result dialogs. */
 .modal-backdrop {
   position: fixed;
   z-index: 20;

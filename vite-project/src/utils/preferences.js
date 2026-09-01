@@ -4,6 +4,9 @@ const DEFAULTS = {
   reducedMotion: false,
   camera: "follow",
 };
+
+// --- Fault-tolerant preference persistence ---
+
 export function loadPreferences(storage = globalThis.localStorage) {
   try {
     const value = JSON.parse(storage?.getItem("deep-sea-preferences") || "{}");
@@ -12,7 +15,7 @@ export function loadPreferences(storage = globalThis.localStorage) {
       ...(value && typeof value === "object" ? value : {}),
     };
   } catch {
-    // Sugadintas JSON arba užblokuotas localStorage neturi sustabdyti programos.
+    // Malformed JSON or blocked storage must not prevent application startup.
     return { ...DEFAULTS };
   }
 }
@@ -20,14 +23,14 @@ export function savePreferences(value, storage = globalThis.localStorage) {
   try {
     storage?.setItem("deep-sea-preferences", JSON.stringify(value));
   } catch {
-    // Kai kurios naršyklės privačiame režime draudžia rašyti į localStorage.
+    // Some private browsing modes reject localStorage writes.
   }
 }
 export function resetPreferences(storage = globalThis.localStorage) {
   try {
     storage?.removeItem("deep-sea-preferences");
   } catch {
-    // Nustatymai vis tiek grąžinami, net jeigu saugyklos išvalyti nepavyko.
+    // Return defaults even when the browser refuses to clear storage.
   }
   return { ...DEFAULTS };
 }

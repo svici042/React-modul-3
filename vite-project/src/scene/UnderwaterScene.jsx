@@ -1,9 +1,16 @@
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
-import { OBJECTS, QUALITY } from "../simulation/constants";
+import { OBJECTS, QUALITY, ROCKS } from "../simulation/constants";
 import { seabedHeight } from "../simulation/calculations";
+import {
+  cockpitCameraOffset,
+  dampAngle,
+  followCameraOffset,
+  headingToForward,
+  headingToModelYaw,
+} from "../simulation/direction";
 import { useSimulationStore } from "../store/useSimulationStore";
 
 const pseudoRandom = (index) => {
@@ -11,9 +18,11 @@ const pseudoRandom = (index) => {
   return value - Math.floor(value);
 };
 
+// --- Procedural seabed and ambient particles ---
+
 function Terrain() {
-  // Dugnas sugeneruojamas tik vieną kartą. Kiekviename kadre keičiamos tik
-  // judančių objektų transformacijos, todėl nekuriame geometrijos iš naujo.
+  // Generate the seabed once. Frames update moving-object transforms instead
+  // of rebuilding static geometry.
   const geometry = useMemo(() => {
     const geo = new THREE.PlaneGeometry(270, 270, 42, 42);
     geo.rotateX(-Math.PI / 2);
@@ -50,7 +59,7 @@ function Rock({ position, scale = 1 }) {
 function MarineSnow({ count }) {
   const ref = useRef();
 
-  // Deterministinės pozicijos nepasikeičia per kiekvieną React perpiešimą.
+  // Deterministic positions remain stable across React re-renders.
   const positions = useMemo(
     () =>
       Float32Array.from({ length: count * 3 }, (_, i) =>
@@ -77,20 +86,30 @@ function MarineSnow({ count }) {
   );
 }
 
+// --- Submersible model and vehicle-local effects ---
+
 function Submersible() {
   const group = useRef();
+  const desiredPosition = useMemo(() => new THREE.Vector3(), []);
   const position = useSimulationStore((s) => s.position);
   const heading = useSimulationStore((s) => s.heading);
   const lights = useSimulationStore((s) => s.lights);
 
-  // `lerp` išlygina vizualų judėjimą tarp fizikos būsenos atnaujinimų.
-  useFrame(() => {
+  // Exponential damping feels consistent across frame rates. A negative Y
+  // rotation aligns the Three.js -Z bow with the compass heading convention.
+  useFrame((_, dt) => {
     if (!group.current) return;
-    group.current.position.lerp(new THREE.Vector3(...position), 0.28);
-    group.current.rotation.y = THREE.MathUtils.lerp(
+
+    desiredPosition.set(...position);
+    group.current.position.lerp(
+      desiredPosition,
+      1 - Math.exp(-14 * Math.min(dt, 0.05)),
+    );
+    group.current.rotation.y = dampAngle(
       group.current.rotation.y,
-      (heading * Math.PI) / 180,
-      0.22,
+      headingToModelYaw(heading),
+      12,
+      Math.min(dt, 0.05),
     );
   });
   return (
@@ -180,6 +199,8 @@ function Bubbles() {
   );
 }
 
+// --- Mission objects and world-space markers ---
+
 function Beacon({ object }) {
   const color =
     object.type === "hazard"
@@ -259,6 +280,8 @@ function Wreck() {
   );
 }
 
+// --- Sonar visualization and camera controllers ---
+
 function SonarPulse() {
   const pulse = useSimulationStore((s) => s.sonarPulse);
   const position = useSimulationStore((s) => s.position);
@@ -297,59 +320,84 @@ function SceneController() {
   const heading = useSimulationStore((s) => s.heading);
   const { camera } = useThree();
   const desired = useMemo(() => new THREE.Vector3(), []);
+  const lookTarget = useMemo(() => new THREE.Vector3(), []);
 
-  // Vienas kadrų ciklas atnaujina simuliaciją ir po to sklandžiai perkelia kamerą.
-  // Orbit režime kamerą vietoje šio kodo valdo `OrbitControls`.
+  // Advance the simulation before moving the camera smoothly. Orbit mode
+  // delegates camera input to `OrbitControls` instead.
   useFrame((_, dt) => {
     tick(dt);
     if (cameraMode === "orbit") return;
-    const rad = (heading * Math.PI) / 180;
+
     const offset =
       cameraMode === "cockpit"
-        ? [0, 1.7, -2.2]
-        : [-Math.sin(rad) * 12, 7, Math.cos(rad) * 14];
+        ? cockpitCameraOffset(heading)
+        : followCameraOffset(heading);
+    const forward = headingToForward(heading);
+
     desired.set(
       position[0] + offset[0],
       position[1] + offset[1],
       position[2] + offset[2],
     );
-    camera.position.lerp(desired, cameraMode === "cockpit" ? 0.3 : 0.08);
-    camera.lookAt(
-      position[0] + Math.sin(rad) * 8,
-      position[1],
-      position[2] - Math.cos(rad) * 8,
+    camera.position.lerp(
+      desired,
+      1 - Math.exp(-(cameraMode === "cockpit" ? 18 : 7) * Math.min(dt, 0.05)),
     );
+    lookTarget.set(
+      position[0] + forward[0] * 10,
+      position[1] + forward[1] * 10,
+      position[2] + forward[2] * 10,
+    );
+    camera.lookAt(lookTarget);
   });
-  return cameraMode === "orbit" ? (
+
+  return cameraMode === "orbit" ? <OrbitCamera position={position} /> : null;
+}
+
+function OrbitCamera({ position }) {
+  const controls = useRef();
+  const [desiredTarget] = useState(() => new THREE.Vector3(...position));
+
+  useFrame((_, dt) => {
+    if (!controls.current) {
+      return;
+    }
+
+    desiredTarget.set(...position);
+    controls.current.target.lerp(
+      desiredTarget,
+      1 - Math.exp(-10 * Math.min(dt, 0.05)),
+    );
+    controls.current.update();
+  });
+
+  return (
     <OrbitControls
-      target={position}
+      ref={controls}
+      target={desiredTarget}
       enablePan={false}
       minDistance={6}
       maxDistance={35}
       maxPolarAngle={Math.PI * 0.85}
     />
-  ) : null;
+  );
 }
 
 function World() {
   const quality = useSimulationStore((s) => s.preferences.quality);
 
-  // Kokybės profilis keičia matomumo nuotolį, dalelių kiekį, šešėlius ir raišką.
+  // Quality profiles control visibility, particle density, shadows, and DPR.
   return (
     <>
       <fog attach="fog" args={["#031116", 12, quality === "low" ? 70 : 95]} />
       <ambientLight intensity={0.32} color="#3c8f92" />
       <hemisphereLight color="#174a53" groundColor="#010407" intensity={0.7} />
       <Terrain />
-      {Array.from({ length: 24 }, (_, i) => (
+      {ROCKS.map((rock) => (
         <Rock
-          key={i}
-          position={[
-            ((i * 37) % 190) - 95,
-            seabedHeight(((i * 37) % 190) - 95, -((i * 53) % 130)),
-            -((i * 53) % 130),
-          ]}
-          scale={1 + (i % 5) * 0.42}
+          key={rock.id}
+          position={[rock.x, seabedHeight(rock.x, rock.z), rock.z]}
+          scale={rock.scale}
         />
       ))}
       {OBJECTS.map((object) => (

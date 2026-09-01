@@ -13,7 +13,7 @@ import { useSimulationStore } from "./store/useSimulationStore";
 
 const UnderwaterScene = lazy(() => import("./scene/UnderwaterScene"));
 
-// Klaidos riba neleidžia WebGL gedimui paslėpti visos vartotojo sąsajos.
+// Keep the HUD available even when the WebGL viewport fails to initialize.
 class SceneBoundary extends Component {
   state = { failed: false };
   static getDerivedStateFromError() {
@@ -33,6 +33,8 @@ class SceneBoundary extends Component {
     );
   }
 }
+
+// --- Primary status bar ---
 
 function TopBar() {
   const heading = useSimulationStore((s) => s.heading);
@@ -79,6 +81,8 @@ function TopBar() {
   );
 }
 
+// --- Compact movement telemetry ---
+
 function BottomTelemetry() {
   const speed = useSimulationStore((s) => s.speed);
   const vertical = useSimulationStore((s) => s.verticalSpeed);
@@ -105,14 +109,17 @@ function BottomTelemetry() {
   );
 }
 
+// --- Simulator composition and global overlays ---
+
 function App() {
-  // Klaviatūros valdymas registruojamas aukščiausiame lygyje, todėl veikia
-  // nepriklausomai nuo to, kuris HUD skydelis šiuo metu rodomas.
+  // Register keyboard controls at the application boundary so they remain
+  // independent of whichever HUD panel is currently visible.
   useKeyboardControls();
   const hull = useSimulationStore((s) => s.hull);
   const battery = useSimulationStore((s) => s.battery);
   const collision = useSimulationStore((s) => s.collisionFlash);
   const reduced = useSimulationStore((s) => s.preferences.reducedMotion);
+  const notice = useSimulationStore((s) => s.notice);
   return (
     <main className={`simulator ${reduced ? "reduced-motion" : ""}`}>
       <a className="skip-link" href="#mission-panel">
@@ -148,6 +155,11 @@ function App() {
       <Sonar />
       <BottomTelemetry />
       <TouchControls />
+      {notice && (
+        <div className="gameplay-notice" role="status" aria-live="polite">
+          {notice}
+        </div>
+      )}
       {(hull < 35 || battery < 20) && (
         <div className="critical-banner" role="status" aria-live="assertive">
           ⚠ {hull < 35 ? "HULL INTEGRITY CRITICAL" : "ENERGY RESERVE CRITICAL"}

@@ -47,4 +47,33 @@ describe("mission progression", () => {
         .status,
     ).toBe("failed");
   });
+
+  it("can progress through the complete six-step mission", () => {
+    let mission = { status: "running", step: 0 };
+
+    mission = progressMission(mission, { ...base, depth: 3760 });
+    mission = progressMission(mission, {
+      ...base,
+      position: [0, 10, -38],
+    });
+    mission = progressMission(mission, {
+      ...base,
+      sonarFired: true,
+      contacts: ["wreck"],
+    });
+    mission = progressMission(mission, {
+      ...base,
+      position: [46, 8, -65],
+    });
+    mission = progressMission(mission, {
+      ...base,
+      samples: ["sample-a", "sample-b", "sample-c"],
+    });
+    mission = progressMission(mission, {
+      ...base,
+      position: [-7, 28, 12],
+    });
+
+    expect(mission).toEqual({ status: "complete", step: 6 });
+  });
 });

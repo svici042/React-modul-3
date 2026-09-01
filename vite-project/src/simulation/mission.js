@@ -9,8 +9,10 @@ export const OBJECTIVES = [
   "Return to the extraction beacon",
 ];
 
-// Funkcija yra be React ar Zustand priklausomybių, todėl misijos taisykles
-// lengva testuoti pateikiant esamą misiją ir naujausią simuliacijos būseną.
+// --- Mission state machine ---
+
+// Keep mission rules independent of React and Zustand so progression can be
+// tested with only the current mission and a simulation snapshot.
 export function progressMission(mission, snapshot) {
   if (snapshot.hull <= 0 || snapshot.battery <= 0) {
     return { ...mission, status: "failed" };

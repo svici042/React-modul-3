@@ -1,4 +1,4 @@
-/* Visos spalvos, šriftai ir šešėliai valdomi iš vienos dizaino žetonų vietos. */
+/* Central design tokens for colors, typography, and shadows. */
 :root {
   --bg: #02080c;
   --panel: rgba(4, 16, 21, 0.82);
@@ -45,7 +45,7 @@ input:focus-visible {
   outline: 2px solid var(--cyan-bright);
   outline-offset: 3px;
 }
-/* Turinys lieka prieinamas ekrano skaitytuvams, bet nėra matomas ekrane. */
+/* Keep status text available to screen readers without displaying it visually. */
 .sr-only {
   position: absolute !important;
   width: 1px !important;

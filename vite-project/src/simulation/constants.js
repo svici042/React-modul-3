@@ -9,8 +9,18 @@ export const WORLD = {
 export const SONAR_RANGE = 78;
 export const SONAR_COOLDOWN = 6;
 
-// Visi sąveikaujantys pasaulio objektai aprašyti vienoje vietoje.
-// `position` masyvas visada reiškia Three.js koordinates [x, y, z].
+// --- Shared procedural world layout ---
+
+// Use the same X/Z rock layout in rendering and collision calculations.
+export const ROCKS = Array.from({ length: 24 }, (_, index) => ({
+  id: `rock-${index}`,
+  x: ((index * 37) % 190) - 95,
+  z: -((index * 53) % 130),
+  scale: 1 + (index % 5) * 0.42,
+}));
+
+// Define every interactive world object in one place. Position arrays always
+// use Three.js world coordinates in [x, y, z] order.
 export const OBJECTS = [
   {
     id: "beacon",
@@ -24,14 +34,16 @@ export const OBJECTS = [
     type: "unknown",
     label: "UNIDENTIFIED SIGNAL",
     position: [46, 8, -74],
-    radius: 10,
+    radius: 7,
+    solid: true,
   },
   {
     id: "vent",
     type: "hazard",
     label: "THERMAL VENT",
     position: [-35, 5, -50],
-    radius: 13,
+    radius: 9,
+    solid: true,
   },
   {
     id: "sample-a",
@@ -63,8 +75,10 @@ export const OBJECTS = [
   },
 ];
 
-// DPR valdo Canvas raišką, particles – jūrinių dalelių skaičių,
-// o shadows nurodo, ar brangesnis šešėlių skaičiavimas yra įjungtas.
+// --- Rendering profiles ---
+
+// DPR controls Canvas resolution, particles controls marine-snow density, and
+// shadows decides whether the more expensive shadow pass is enabled.
 export const QUALITY = {
   low: { dpr: 1, particles: 260, shadows: false },
   medium: { dpr: 1.5, particles: 620, shadows: false },

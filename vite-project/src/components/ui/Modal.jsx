@@ -1,10 +1,59 @@
 import { useEffect, useRef } from "react";
 
+// --- Accessible dialog shell ---
+
 export default function Modal({ title, children, label = title }) {
   const ref = useRef();
+
   useEffect(() => {
-    ref.current?.focus();
+    const previouslyFocused = document.activeElement;
+    const dialog = ref.current;
+    const preferredFocus = dialog?.querySelector(
+      "[autofocus], button:not(:disabled), input:not(:disabled), select:not(:disabled)",
+    );
+
+    (preferredFocus || dialog)?.focus();
+
+    return () => {
+      if (
+        previouslyFocused instanceof HTMLElement &&
+        previouslyFocused.isConnected
+      ) {
+        previouslyFocused.focus();
+      }
+    };
   }, []);
+
+  // Keep keyboard focus inside the active blocking dialog.
+  function trapFocus(event) {
+    if (event.key !== "Tab") {
+      return;
+    }
+
+    const focusable = [
+      ...event.currentTarget.querySelectorAll(
+        "button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1'])",
+      ),
+    ];
+
+    if (!focusable.length) {
+      event.preventDefault();
+      ref.current?.focus();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable.at(-1);
+
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   return (
     <div className="modal-backdrop" role="presentation">
       <section
@@ -14,12 +63,15 @@ export default function Modal({ title, children, label = title }) {
         aria-label={label}
         tabIndex={-1}
         ref={ref}
+        onKeyDown={trapFocus}
       >
         {children}
       </section>
     </div>
   );
 }
+
+// --- Keyboard control reference dialog ---
 
 export function ControlGuide({ onClose }) {
   return (

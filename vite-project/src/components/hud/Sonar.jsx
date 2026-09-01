@@ -1,10 +1,12 @@
 import { OBJECTS, SONAR_RANGE } from "../../simulation/constants";
 import { bearingToContact, distance3 } from "../../simulation/calculations";
+import { degreesToRadians } from "../../simulation/direction";
 import { useSimulationStore } from "../../store/useSimulationStore";
 
+// --- User-triggered sonar audio ---
+
 function pingSound() {
-  // Garsas sukuriamas tik po vartotojo paspaudimo, kad nepažeistų
-  // naršyklių automatinio garso paleidimo taisyklių.
+  // Create audio only after user input to satisfy browser autoplay policies.
   const AudioContext = window.AudioContext || window.webkitAudioContext;
   if (!AudioContext) {
     return;
@@ -25,6 +27,8 @@ function pingSound() {
   oscillator.onended = () => context.close();
 }
 
+// --- World-connected sonar instrument ---
+
 export default function Sonar() {
   const position = useSimulationStore((s) => s.position);
   const heading = useSimulationStore((s) => s.heading);
@@ -35,6 +39,7 @@ export default function Sonar() {
   const fire = () => {
     if (useSimulationStore.getState().fireSonar() && !muted) pingSound();
   };
+
   return (
     <section className="sonar" aria-label="Active sonar">
       <div className="sonar-head">
@@ -56,12 +61,12 @@ export default function Sonar() {
           const distance = distance3(position, object.position);
           const angle = bearingToContact(
             position,
-            (heading * Math.PI) / 180,
+            degreesToRadians(heading),
             object.position,
           );
 
-          // Atstumą ir kampą paverčiame procentinėmis CSS koordinatėmis.
-          // 50/50 yra centras, o 43 % palieka tarpą iki apskritimo krašto.
+          // Convert range and bearing into percentage-based CSS coordinates.
+          // 50/50 is the center; 43% leaves padding inside the circular edge.
           const radius = (distance / SONAR_RANGE) * 43;
           const x = 50 + Math.sin(angle) * radius;
           const y = 50 - Math.cos(angle) * radius;
@@ -80,7 +85,11 @@ export default function Sonar() {
         })}
         <i className="ownship" />
       </div>
-      <button className="ping-button" onClick={fire} disabled={cooldown > 0}>
+      <button
+        className="ping-button"
+        onClick={fire}
+        aria-disabled={cooldown > 0}
+      >
         PING <kbd>R</kbd>
       </button>
     </section>

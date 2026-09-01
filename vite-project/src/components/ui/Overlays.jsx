@@ -2,6 +2,8 @@ import { CAMERA_MODES } from "../../simulation/constants";
 import { useSimulationStore } from "../../store/useSimulationStore";
 import Modal, { ControlGuide } from "./Modal";
 
+// --- Mission introduction ---
+
 export function Intro() {
   const start = useSimulationStore((s) => s.start);
   return (
@@ -36,6 +38,8 @@ export function Intro() {
     </Modal>
   );
 }
+
+// --- Pause and simulation settings ---
 
 export function Settings() {
   const s = useSimulationStore();
@@ -97,6 +101,8 @@ export function Settings() {
   );
 }
 
+// --- Mission completion and failure states ---
+
 export function EndState({ complete }) {
   const restart = useSimulationStore((s) => s.restart);
   return (
@@ -120,10 +126,12 @@ export function EndState({ complete }) {
   );
 }
 
+// --- Overlay state router ---
+
 export function Overlays() {
   const mission = useSimulationStore((s) => s.mission);
   const showControls = useSimulationStore((s) => s.showControls);
-  const close = useSimulationStore((s) => s.toggleControls);
+  const close = useSimulationStore((s) => s.closeControls);
   if (showControls) return <ControlGuide onClose={close} />;
   if (mission.status === "intro") return <Intro />;
   if (mission.status === "paused") return <Settings />;
