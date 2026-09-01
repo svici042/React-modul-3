@@ -2,8 +2,10 @@ import {
   pressureFromDepth,
   temperatureFromDepth,
 } from "../../simulation/calculations";
-import { WORLD } from "../../simulation/constants";
-import { useSimulationStore } from "../../store/useSimulationStore";
+import {
+  selectCurrentLevel,
+  useSimulationStore,
+} from "../../store/useSimulationStore";
 
 function Meter({ label, value, tone = "cyan" }) {
   return (
@@ -23,8 +25,9 @@ export default function TelemetryPanel() {
   const battery = useSimulationStore((s) => s.battery);
   const hull = useSimulationStore((s) => s.hull);
   const lights = useSimulationStore((s) => s.lights);
+  const level = useSimulationStore(selectCurrentLevel);
   const y = useSimulationStore((s) => s.position[1]);
-  const depth = WORLD.surfaceDepth + (WORLD.maxY - y);
+  const depth = level.world.baseDepth + (level.world.maxY - y);
   return (
     <aside className="panel telemetry-panel" aria-label="Vehicle systems">
       <div className="panel-heading">

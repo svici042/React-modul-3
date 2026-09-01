@@ -8,8 +8,10 @@ import TouchControls, {
 } from "./components/hud/TouchControls";
 import { Overlays } from "./components/ui/Overlays";
 import { useKeyboardControls } from "./hooks/useKeyboardControls";
-import { WORLD } from "./simulation/constants";
-import { useSimulationStore } from "./store/useSimulationStore";
+import {
+  selectCurrentLevel,
+  useSimulationStore,
+} from "./store/useSimulationStore";
 
 const UnderwaterScene = lazy(() => import("./scene/UnderwaterScene"));
 
@@ -37,9 +39,10 @@ class SceneBoundary extends Component {
 // --- Primary status bar ---
 
 function TopBar() {
+  const level = useSimulationStore(selectCurrentLevel);
   const heading = useSimulationStore((s) => s.heading);
   const y = useSimulationStore((s) => s.position[1]);
-  const depth = WORLD.surfaceDepth + (WORLD.maxY - y);
+  const depth = level.world.baseDepth + (level.world.maxY - y);
   const camera = useSimulationStore((s) => s.preferences.camera);
   const cycleCamera = useSimulationStore((s) => s.cycleCamera);
   const pause = useSimulationStore((s) => s.pause);
@@ -50,7 +53,10 @@ function TopBar() {
         <span className="brand-mark">DSC</span>
         <span>
           <b>DEEP SEA CONTROL</b>
-          <small>NEREID VII · DIVE 2407</small>
+          <small>
+            NEREID VII · MISSION {String(level.number).padStart(2, "0")} ·{" "}
+            {level.title}
+          </small>
         </span>
       </div>
       <div className="top-metrics">
@@ -86,6 +92,8 @@ function TopBar() {
 function BottomTelemetry() {
   const speed = useSimulationStore((s) => s.speed);
   const vertical = useSimulationStore((s) => s.verticalSpeed);
+  const input = useSimulationStore((s) => s.input);
+  const steering = input.left ? "LEFT" : input.right ? "RIGHT" : "CENTER";
   return (
     <div className="bottom-telemetry">
       <span>
@@ -98,7 +106,9 @@ function BottomTelemetry() {
       </span>
       <DesktopDriveIndicator />
       <span>
-        <small>FORWARD</small>
+        <small>
+          {speed < -0.35 ? "REVERSE" : "FORWARD"} · STEER {steering}
+        </small>
         <b>
           {speed >= 0 ? "+" : ""}
           {speed.toFixed(1)}

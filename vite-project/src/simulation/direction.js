@@ -63,6 +63,7 @@ export function integrateVehicleMotion({
   disabled = false,
   maxSpeed,
   maxVerticalSpeed,
+  movementDirection = 1,
 }) {
   const forwardAxis = disabled
     ? 0
@@ -86,8 +87,23 @@ export function integrateVehicleMotion({
     verticalAxis ? 2.2 : 3.6,
     dt,
   );
+
+  // --- Reverse-aware steering ---
+
+  // Use actual speed outside the dead zone and intended thrust inside it. The
+  // remembered direction prevents steering from flickering while speed is near zero.
+  const steeringDeadZone = 0.35;
+  const resolvedMovementDirection =
+    Math.abs(speed) > steeringDeadZone
+      ? Math.sign(speed)
+      : forwardAxis !== 0
+        ? Math.sign(forwardAxis)
+        : movementDirection;
+  const steeringDirection = resolvedMovementDirection < 0 ? -1 : 1;
   const turnRate = 34 + (Math.abs(nextSpeed) / maxSpeed) * 32;
-  const nextHeading = normalizeHeading(heading + turnAxis * turnRate * dt);
+  const nextHeading = normalizeHeading(
+    heading + turnAxis * steeringDirection * turnRate * dt,
+  );
   const forward = headingToForward(nextHeading);
 
   // Average the previous and next velocities so traveled distance depends less
@@ -109,5 +125,6 @@ export function integrateVehicleMotion({
       turn: turnAxis,
       vertical: verticalAxis,
     },
+    movementDirection: resolvedMovementDirection,
   };
 }

@@ -636,6 +636,10 @@
 .modal {
   position: relative;
   width: min(500px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--line-bright) rgba(3, 14, 19, 0.7);
   padding: 30px;
   background: linear-gradient(
     145deg,
@@ -973,4 +977,157 @@
   color: var(--amber);
   font: 8px var(--mono);
   letter-spacing: 0.12em;
+}
+
+/* Data-driven mission guidance and compact bearing indicator. */
+.objective-copy {
+  margin: 8px 0;
+  color: #91a9a9;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.control-hint {
+  color: var(--cyan);
+  font: 8px var(--mono);
+  letter-spacing: 0.1em;
+}
+.control-hint kbd,
+.scan-action kbd {
+  margin-left: 5px;
+  color: var(--cyan-bright);
+}
+.target-guidance {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 8px;
+  background: rgba(70, 205, 187, 0.06);
+  border: 1px solid var(--line);
+}
+.target-guidance i {
+  color: var(--cyan);
+  font: 22px var(--mono);
+  font-style: normal;
+}
+.target-guidance span {
+  color: var(--muted);
+  font: 8px/1.5 var(--mono);
+}
+.target-guidance b {
+  display: block;
+  color: var(--text);
+}
+
+/* Mission archive, tutorial, and result layouts share the modal identity. */
+.modal:has(.level-grid) {
+  width: min(900px, 100%);
+}
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.level-card {
+  min-height: 155px;
+  padding: 16px;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: rgba(5, 24, 29, 0.9);
+  color: var(--text);
+  cursor: pointer;
+}
+.level-card:hover:not(:disabled),
+.level-card:focus-visible {
+  border-color: var(--cyan);
+  background: rgba(24, 74, 75, 0.42);
+}
+.level-card:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+.level-card > * {
+  display: block;
+}
+.level-card b {
+  margin: 8px 0;
+  font-size: 17px;
+}
+.level-card small {
+  min-height: 34px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.level-number,
+.level-meta,
+.level-card em {
+  color: var(--teal);
+  font: 8px var(--mono);
+  letter-spacing: 0.09em;
+}
+.level-meta {
+  margin-top: 11px;
+  color: #769594;
+}
+.level-card em {
+  margin-top: 8px;
+  color: var(--cyan);
+  font-style: normal;
+}
+.level-card.complete {
+  border-color: rgba(70, 205, 187, 0.45);
+}
+.tutorial-key {
+  display: inline-block;
+  padding: 12px 16px;
+  border: 1px solid var(--line-bright);
+  color: var(--cyan-bright);
+  background: rgba(70, 205, 187, 0.08);
+  font: 16px var(--mono);
+}
+.settings-tools {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.settings-tools button {
+  padding: 7px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font: 8px var(--mono);
+  cursor: pointer;
+}
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 18px 0;
+  border: 1px solid var(--line);
+}
+.result-grid span {
+  padding: 11px;
+  color: var(--muted);
+  font: 8px var(--mono);
+  border: 1px solid var(--line);
+}
+.result-grid b {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+@media (max-width: 600px) {
+  .level-grid {
+    grid-template-columns: 1fr;
+    max-height: 66vh;
+    overflow-y: auto;
+  }
+  .level-card {
+    min-height: 130px;
+  }
+  .result-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }

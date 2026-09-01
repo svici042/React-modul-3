@@ -1,86 +1,125 @@
-import { OBJECTIVES } from "../../simulation/mission";
-import { OBJECTS } from "../../simulation/constants";
-import { distance3 } from "../../simulation/calculations";
-import { useSimulationStore } from "../../store/useSimulationStore";
+import { getTargetTelemetry } from "../../simulation/levelRuntime";
+import {
+  selectCurrentLevel,
+  useSimulationStore,
+} from "../../store/useSimulationStore";
 
 export default function MissionPanel() {
-  const mission = useSimulationStore((s) => s.mission);
-  const samples = useSimulationStore((s) => s.samples);
-  const events = useSimulationStore((s) => s.events);
-  const scan = useSimulationStore((s) => s.scanNearby);
-  const position = useSimulationStore((s) => s.position);
-
-  // --- Active objective and nearest research target ---
-
-  const targetId = [
-    "beacon",
-    "beacon",
-    "wreck",
-    "wreck",
-    "wreck",
-    "extraction",
-  ][mission.step];
-  const target = OBJECTS.find((object) => object.id === targetId);
-  const nearestSample = OBJECTS.filter(
-    (object) => object.type === "sample" && !samples.includes(object.id),
-  )
-    .map((object) => ({
-      ...object,
-      distance: distance3(position, object.position),
-    }))
-    .sort((a, b) => a.distance - b.distance)[0];
+  const level = useSimulationStore(selectCurrentLevel);
+  const mission = useSimulationStore((state) => state.mission);
+  const scanned = useSimulationStore((state) => state.scannedObjects);
+  const discovered = useSimulationStore((state) => state.discoveredObjects);
+  const identified = useSimulationStore((state) => state.identifiedObjects);
+  const events = useSimulationStore((state) => state.events);
+  const scan = useSimulationStore((state) => state.scanNearby);
+  const position = useSimulationStore((state) => state.position);
+  const heading = useSimulationStore((state) => state.heading);
+  const objectiveProgress = useSimulationStore(
+    (state) => state.objectiveProgress,
+  );
+  const objective = level.objectives[mission.step];
+  const telemetry = getTargetTelemetry(level, objective, position, heading, {
+    scannedObjects: scanned,
+    discoveredObjects: discovered,
+    objectiveProgress,
+  });
+  const needsDiscovery = telemetry.requiresDiscovery;
+  const instruction = needsDiscovery
+    ? "Target not yet discovered. Press R to use sonar, then follow its bearing."
+    : objective?.instruction;
 
   return (
     <aside className="panel mission-panel" aria-label="Mission objectives">
       <div className="panel-heading">
         <span>MISSION DIRECTIVE</span>
-        <b>{Math.min(mission.step + 1, 6)} / 6</b>
+        <b>
+          {Math.min(mission.step + 1, level.objectives.length)} /{" "}
+          {level.objectives.length}
+        </b>
       </div>
-      <p className="eyebrow">ECHOES OF THE ABYSS</p>
-      <h2>{OBJECTIVES[mission.step] || "Mission complete"}</h2>
-      {target && (
+      <p className="eyebrow">{level.title.toUpperCase()}</p>
+      <h2>{objective?.title ?? "Mission complete"}</h2>
+      {objective && <p className="objective-copy">{instruction}</p>}
+      {objective?.key && (
+        <p className="control-hint">
+          ACTION <kbd>{needsDiscovery ? "R" : objective.key}</kbd>
+        </p>
+      )}
+      {telemetry.target && (
+        <div
+          className="target-guidance"
+          aria-label={`Target ${telemetry.distance.toFixed(0)} metres, bearing ${telemetry.bearing.toFixed(0)} degrees`}
+        >
+          <i style={{ transform: `rotate(${telemetry.bearing}deg)` }}>↑</i>
+          <span>
+            <b>
+              {identified.includes(telemetry.target.id)
+                ? telemetry.target.label
+                : "UNKNOWN CONTACT"}
+            </b>
+            {telemetry.distance.toFixed(0)} m ·{" "}
+            {telemetry.bearing > 0 ? "RIGHT" : "LEFT"}{" "}
+            {Math.abs(telemetry.bearing).toFixed(0)}°
+          </span>
+        </div>
+      )}
+      {needsDiscovery && (
+        <p className="objective-distance">TARGET UNKNOWN · USE SONAR</p>
+      )}
+      {objective?.type === "reverse" && (
         <p className="objective-distance">
-          TARGET RANGE / {distance3(position, target.position).toFixed(0)} m
+          {objectiveProgress?.armed
+            ? `REVERSE MANOEUVRE ${Math.min(objective.distance, objectiveProgress.distance).toFixed(0)} / ${objective.distance} m`
+            : "ENTER THE REVERSE START AREA"}
         </p>
       )}
       <div
         className="progress-steps"
-        aria-label={`Mission progress: ${Math.min(mission.step, 6)} of 6`}
+        aria-label={`Mission progress: ${mission.step} of ${level.objectives.length}`}
       >
-        {OBJECTIVES.map((_, i) => (
+        {level.objectives.map((item, index) => (
           <i
-            key={i}
+            key={item.id}
             className={
-              i < mission.step ? "done" : i === mission.step ? "active" : ""
+              index < mission.step
+                ? "done"
+                : index === mission.step
+                  ? "active"
+                  : ""
             }
           />
         ))}
       </div>
-      {mission.step === 4 && (
+      {["scan", "scanAll"].includes(objective?.type) && (
         <>
           <p className="scan-hint">
-            {nearestSample?.distance < 10
-              ? `IN RANGE · ${nearestSample.label}`
-              : `NEAREST SAMPLE · ${nearestSample?.distance.toFixed(0) ?? "—"} m`}
+            {needsDiscovery
+              ? "TARGET UNKNOWN · PRESS R"
+              : telemetry.distance <= (objective.range ?? 10)
+                ? `IN RANGE · ${telemetry.target?.label}`
+                : `NEXT TARGET · ${telemetry.distance?.toFixed(0) ?? "—"} m`}
           </p>
           <button className="scan-action" onClick={scan}>
-            Scan nearby point <kbd>X</kbd>
+            Interact / scan <kbd>X</kbd>
           </button>
         </>
       )}
       <section className="research-log">
         <div className="subheading">
-          <span>RESEARCH LOG</span>
-          <b>{samples.length}/3 samples</b>
+          <span>MISSION DATA</span>
+          <b>{scanned.length} archived</b>
         </div>
-        {samples.length ? (
-          samples.map((sample) => (
-            <p key={sample}>
-              ✓ {sample.replace("sample-", "Data point ").toUpperCase()}
-            </p>
-          ))
+        {scanned.length ? (
+          scanned
+            .slice(-3)
+            .map((id) => (
+              <p key={id}>
+                ✓{" "}
+                {level.objects.find((object) => object.id === id)?.label ?? id}
+              </p>
+            ))
         ) : (
-          <p className="muted">No specimen data archived</p>
+          <p className="muted">No mission data archived</p>
         )}
       </section>
       <section className="event-log">
@@ -90,9 +129,9 @@ export default function MissionPanel() {
         {events
           .slice(-4)
           .reverse()
-          .map((event, i) => (
-            <p key={`${event}-${i}`}>
-              <time>{String(events.length - i).padStart(2, "0")}</time>
+          .map((event, index) => (
+            <p key={`${events.length - index}-${event}`}>
+              <time>{String(events.length - index).padStart(2, "0")}</time>
               {event}
             </p>
           ))}

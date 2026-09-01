@@ -1,32 +1,118 @@
+import { LEVELS } from "../../data/levels";
 import { CAMERA_MODES } from "../../simulation/constants";
-import { useSimulationStore } from "../../store/useSimulationStore";
+import {
+  TUTORIAL_STEPS,
+  selectCurrentLevel,
+  useSimulationStore,
+} from "../../store/useSimulationStore";
 import Modal, { ControlGuide } from "./Modal";
 
-// --- Mission introduction ---
+// --- Keyboard-accessible mission selection ---
 
-export function Intro() {
-  const start = useSimulationStore((s) => s.start);
+function LevelSelect() {
+  const progress = useSimulationStore((state) => state.progress);
+  const selectLevel = useSimulationStore((state) => state.selectLevel);
+
   return (
-    <Modal title="Echoes of the Abyss">
-      <p className="eyebrow">MISSION 01 / HADAL TRENCH</p>
-      <div className="intro-mark">
-        DSC <span>07</span>
+    <Modal title="Mission select" label="Select a mission">
+      <p className="eyebrow">NEREID VII / MISSION ARCHIVE</p>
+      <h1>Choose a dive</h1>
+      <div className="level-grid">
+        {LEVELS.map((level) => {
+          const unlocked = progress.unlocked.includes(level.id);
+          const complete = Boolean(progress.completed[level.id]);
+          const best = progress.bestBattery[level.id];
+
+          return (
+            <button
+              className={`level-card ${complete ? "complete" : ""}`}
+              key={level.id}
+              disabled={!unlocked}
+              onClick={() => selectLevel(level.id)}
+            >
+              <span className="level-number">
+                MISSION {String(level.number).padStart(2, "0")}
+              </span>
+              <b>{level.title}</b>
+              <small>{level.description}</small>
+              <span className="level-meta">
+                {level.difficulty} · {level.duration}
+              </span>
+              <em>
+                {!unlocked
+                  ? "LOCKED"
+                  : complete
+                    ? `COMPLETE${best === undefined ? "" : ` · BEST ${best.toFixed(0)}% POWER`}`
+                    : "AVAILABLE"}
+              </em>
+            </button>
+          );
+        })}
       </div>
-      <h1>Echoes of the Abyss</h1>
-      <p className="intro-copy">
-        A faint signal has surfaced from the Kermadec trench. Pilot research
-        submersible <strong>Nereid VII</strong>, locate its source, and recover
-        the lost data before power reserves are exhausted.
+      <p className="legal">Complete each mission to unlock the next dive.</p>
+    </Modal>
+  );
+}
+
+// --- Short first-launch tutorial cards ---
+
+function Tutorial() {
+  const stepIndex = useSimulationStore((state) => state.tutorialStep);
+  const next = useSimulationStore((state) => state.nextTutorial);
+  const skip = useSimulationStore((state) => state.skipTutorial);
+  const returning = useSimulationStore(
+    (state) => state.tutorialReturnStatus === "paused",
+  );
+  const step = TUTORIAL_STEPS[stepIndex];
+
+  return (
+    <Modal title="Pilot tutorial">
+      <p className="eyebrow">
+        PILOT ORIENTATION · {stepIndex + 1}/{TUTORIAL_STEPS.length}
       </p>
+      <div className="tutorial-key">{step.keys}</div>
+      <h2>{step.title}</h2>
+      <p className="intro-copy">{step.copy}</p>
+      <div className="progress-steps">
+        {TUTORIAL_STEPS.map((item, index) => (
+          <i key={item.title} className={index <= stepIndex ? "active" : ""} />
+        ))}
+      </div>
+      <div className="modal-actions">
+        {!returning && <button onClick={skip}>Skip tutorial</button>}
+        <button className="primary" onClick={next} autoFocus>
+          {stepIndex === TUTORIAL_STEPS.length - 1 ? "Finish" : "Next"}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+// --- Level-aware briefing ---
+
+function Intro() {
+  const level = useSimulationStore(selectCurrentLevel);
+  const start = useSimulationStore((state) => state.start);
+
+  return (
+    <Modal title={level.title}>
+      <p className="eyebrow">
+        MISSION {String(level.number).padStart(2, "0")} / {level.subtitle}
+      </p>
+      <div className="intro-mark">
+        DSC <span>{String(level.number).padStart(2, "0")}</span>
+      </div>
+      <h1>{level.title}</h1>
+      <p className="intro-copy">{level.briefing}</p>
       <div className="briefing-stats">
         <span>
-          <b>3,740 m</b>Initial depth
+          <b>{level.world.baseDepth} m</b>Base depth
         </span>
         <span>
-          <b>1</b>Unknown signal
+          <b>{level.objectives.length}</b>Objectives
         </span>
         <span>
-          <b>3</b>Data samples
+          <b>{level.difficulty}</b>Difficulty
         </span>
       </div>
       <button className="primary full" onClick={start} autoFocus>
@@ -39,11 +125,11 @@ export function Intro() {
   );
 }
 
-// --- Pause and simulation settings ---
+// --- Pause and persistent settings ---
 
-export function Settings() {
-  const s = useSimulationStore();
-  const resume = s.resume;
+function Settings() {
+  const state = useSimulationStore();
+
   return (
     <Modal title="Simulation paused">
       <p className="eyebrow">MISSION CLOCK HALTED</p>
@@ -52,12 +138,14 @@ export function Settings() {
         <label>
           Graphics quality
           <select
-            value={s.preferences.quality}
-            onChange={(e) => s.setPreference("quality", e.target.value)}
+            value={state.preferences.quality}
+            onChange={(event) =>
+              state.setPreference("quality", event.target.value)
+            }
           >
-            {["low", "medium", "high"].map((q) => (
-              <option key={q} value={q}>
-                {q[0].toUpperCase() + q.slice(1)}
+            {["low", "medium", "high"].map((quality) => (
+              <option key={quality} value={quality}>
+                {quality}
               </option>
             ))}
           </select>
@@ -65,8 +153,10 @@ export function Settings() {
         <label>
           Camera
           <select
-            value={s.preferences.camera}
-            onChange={(e) => s.setPreference("camera", e.target.value)}
+            value={state.preferences.camera}
+            onChange={(event) =>
+              state.setPreference("camera", event.target.value)
+            }
           >
             {CAMERA_MODES.map((mode) => (
               <option key={mode}>{mode}</option>
@@ -77,23 +167,33 @@ export function Settings() {
           <span>Mute sonar</span>
           <input
             type="checkbox"
-            checked={s.preferences.muted}
-            onChange={(e) => s.setPreference("muted", e.target.checked)}
+            checked={state.preferences.muted}
+            onChange={(event) =>
+              state.setPreference("muted", event.target.checked)
+            }
           />
         </label>
         <label className="toggle-row">
           <span>Reduced motion</span>
           <input
             type="checkbox"
-            checked={s.preferences.reducedMotion}
-            onChange={(e) => s.setPreference("reducedMotion", e.target.checked)}
+            checked={state.preferences.reducedMotion}
+            onChange={(event) =>
+              state.setPreference("reducedMotion", event.target.checked)
+            }
           />
         </label>
       </div>
+      <div className="settings-tools">
+        <button onClick={state.reopenTutorial}>Reopen tutorial</button>
+        <button onClick={state.resetTutorial}>Reset tutorial</button>
+        <button onClick={state.resetProgress}>Reset progression</button>
+        <button onClick={state.resetPreferences}>Reset preferences</button>
+      </div>
       <div className="modal-actions">
-        <button onClick={s.restart}>Restart mission</button>
-        <button onClick={s.resetPreferences}>Reset preferences</button>
-        <button className="primary" onClick={resume} autoFocus>
+        <button onClick={state.returnToSelect}>Mission select</button>
+        <button onClick={state.restart}>Restart mission</button>
+        <button className="primary" onClick={state.resume} autoFocus>
           Resume dive
         </button>
       </div>
@@ -101,10 +201,21 @@ export function Settings() {
   );
 }
 
-// --- Mission completion and failure states ---
+// --- Completion and failure results ---
 
-export function EndState({ complete }) {
-  const restart = useSimulationStore((s) => s.restart);
+function EndState({ complete }) {
+  const level = useSimulationStore(selectCurrentLevel);
+  const mission = useSimulationStore((state) => state.mission);
+  const stats = useSimulationStore((state) => state.stats);
+  const hull = useSimulationStore((state) => state.hull);
+  const battery = useSimulationStore((state) => state.battery);
+  const restart = useSimulationStore((state) => state.restart);
+  const nextLevel = useSimulationStore((state) => state.nextLevel);
+  const returnToSelect = useSimulationStore((state) => state.returnToSelect);
+  const hasNext = level.number < LEVELS.length;
+  const elapsedMinutes = Math.floor(stats.elapsed / 60);
+  const elapsedSeconds = Math.floor(stats.elapsed % 60);
+
   return (
     <Modal title={complete ? "Mission complete" : "Mission failed"}>
       <p className="eyebrow">
@@ -113,15 +224,39 @@ export function EndState({ complete }) {
       <div className={`end-icon ${complete ? "success" : "failure"}`}>
         {complete ? "✓" : "!"}
       </div>
-      <h2>{complete ? "Echoes recovered" : "Nereid VII disabled"}</h2>
-      <p className="intro-copy">
-        {complete
-          ? "All three data points are secured. The recovery team has your signal and the mission archive is complete."
-          : "Hull integrity or energy reserves reached a critical threshold. Review the route and attempt another dive."}
-      </p>
-      <button className="primary full" onClick={restart}>
-        Restart mission
-      </button>
+      <h2>{complete ? `${level.title} complete` : mission.failureReason}</h2>
+      <div className="result-grid">
+        <span>
+          <b>
+            {elapsedMinutes}:{String(elapsedSeconds).padStart(2, "0")}
+          </b>
+          Elapsed
+        </span>
+        <span>
+          <b>{hull.toFixed(0)}%</b>Hull
+        </span>
+        <span>
+          <b>{battery.toFixed(0)}%</b>Battery
+        </span>
+        <span>
+          <b>{stats.collisions}</b>Collisions
+        </span>
+        <span>
+          <b>{stats.damageReceived.toFixed(0)}</b>Damage
+        </span>
+        <span>
+          <b>{level.objectives.length}</b>Objectives
+        </span>
+      </div>
+      <div className="modal-actions result-actions">
+        <button onClick={returnToSelect}>Mission select</button>
+        <button onClick={restart}>{complete ? "Replay" : "Retry"}</button>
+        {complete && hasNext && (
+          <button className="primary" onClick={nextLevel}>
+            Next mission
+          </button>
+        )}
+      </div>
     </Modal>
   );
 }
@@ -129,10 +264,13 @@ export function EndState({ complete }) {
 // --- Overlay state router ---
 
 export function Overlays() {
-  const mission = useSimulationStore((s) => s.mission);
-  const showControls = useSimulationStore((s) => s.showControls);
-  const close = useSimulationStore((s) => s.closeControls);
-  if (showControls) return <ControlGuide onClose={close} />;
+  const mission = useSimulationStore((state) => state.mission);
+  const showControls = useSimulationStore((state) => state.showControls);
+  const closeControls = useSimulationStore((state) => state.closeControls);
+
+  if (showControls) return <ControlGuide onClose={closeControls} />;
+  if (mission.status === "select") return <LevelSelect />;
+  if (mission.status === "tutorial") return <Tutorial />;
   if (mission.status === "intro") return <Intro />;
   if (mission.status === "paused") return <Settings />;
   if (mission.status === "complete") return <EndState complete />;

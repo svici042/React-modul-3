@@ -1,68 +1,82 @@
 # Deep Sea Control
 
-Deep Sea Control is a cinematic, browser-based educational submersible simulator. Pilot the **Nereid VII** through a procedurally built trench, use active sonar to locate a wreck, archive three research samples, and return to extraction.
+Deep Sea Control is a cinematic React and Three.js submersible simulator. Pilot the Nereid VII through four deterministic underwater sectors, use sonar to discover hidden contacts, complete contextual objectives, and return with enough hull and battery to unlock the next mission.
 
-## Features
+## Playable missions
 
-- Interactive React Three Fiber ocean trench with procedural terrain, rocks, marine snow, bubbles, fog, searchlights, a wreck, thermal vent, beacons, and sonar pulse
-- Inertial, frame-rate-independent movement with seabed/world boundaries and collision damage
-- Follow, cockpit, and orbit inspection cameras
-- Connected telemetry for depth, heading, speed, pressure, temperature, battery, hull, lights, sonar, and mission progress
-- Six-step playable **Echoes of the Abyss** mission with science log, event stream, completion, failure, and restart states
-- Circular world-connected sonar with range, direction, classification, energy cost, cooldown, and opt-in audio
-- Three graphics presets, responsive tablet/touch controls, and reduced-motion support
-- Keyboard-operable dialogs, visible focus, semantic labels, critical text alerts, and a non-visual status summary
+1. **Training Dive** — a low-risk course teaching navigation, depth, a marked reverse corridor with objective-specific progress, sonar, scanning, and extraction.
+2. **Echoes of the Abyss** — descend into the Kermadec trench, locate a hidden wreck, archive three separated records, and extract.
+3. **Thermal Rift** — avoid active vents, reveal three safe sites, deploy sensors, and manage increased thermal drain.
+4. **Blackwater Recovery** — search the largest and darkest sector, distinguish false contacts, restore relays, recover a black box, and escape with limited reserves.
 
-## Screenshot
+Level 1 starts unlocked. Completing a mission unlocks the next; completed missions remain replayable. Completion state and best remaining battery are stored separately from display preferences in defensively validated `localStorage` records.
 
-> Add a production screenshot here after deployment.
+## Controls and guidance
 
-## Controls
+| Input                   | Action                                     |
+| ----------------------- | ------------------------------------------ |
+| `W` / `S` or arrow keys | Forward / reverse thrust                   |
+| `A` / `D` or arrow keys | Steer left / right                         |
+| `Q` / `E`               | Descend / ascend                           |
+| `R`                     | Active sonar ping                          |
+| `X`                     | Scan or interact within the required range |
+| `F`                     | Cycle lights off, low, and high            |
+| `C`                     | Cycle follow, cockpit, and orbit cameras   |
+| `Space`                 | Stabilize the vehicle                      |
+| `Esc`                   | Pause or resume                            |
 
-| Input               | Action                                   |
-| ------------------- | ---------------------------------------- |
-| `W` / `S` or arrows | Forward / reverse thrust                 |
-| `A` / `D` or arrows | Turn left / right                        |
-| `Q` / `E`           | Descend / ascend                         |
-| `Space`             | Stabilize / stop                         |
-| `C`                 | Cycle follow, cockpit, and orbit cameras |
-| `F`                 | Cycle searchlights off, low, high        |
-| `R`                 | Active sonar ping                        |
-| `X`                 | Scan a nearby data point                 |
-| `Esc`               | Pause / resume                           |
-| Mouse drag          | Inspect in orbit camera mode             |
+Reverse steering is intentionally inverted relative to vehicle heading: left and right remain intuitive in the direction of travel. A dead zone plus remembered movement direction prevents steering from flickering while speed crosses zero.
 
-## Run locally
+The first Level 1 launch displays six short tutorial cards. The tutorial can be skipped, reopened from pause, or reset in settings. Every active objective displays its plain-language action, relevant key, progress, and—after discovery—target distance and relative bearing arrow. Hidden contacts receive no world label or mission marker until sonar reveals them.
+
+## Install, run, and validate
+
+From this `vite-project` directory:
 
 ```bash
 npm install
 npm run dev
+npm test
+npm run lint
+npm run format:check
+npm run build
 ```
 
-From the parent directory, `npm start` also launches this project. Validation commands are `npm run build`, `npm test`, `npm run lint`, and `npm run preview`.
-
-Use `npm run format` to format the project automatically. `npm run format:check` verifies formatting without changing files.
+From the repository parent, `npm run dev`, `npm start`, and `npm run build` forward to this Vite application.
 
 ## Architecture
 
-- `scene/` owns Three.js/R3F rendering and camera behavior.
-- `store/` is the authoritative Zustand simulation state and frame tick.
-- `simulation/` contains pure constants, telemetry, collision, sonar, and mission logic.
-- `components/hud/` renders instruments and interactive controls.
-- `components/ui/` contains mission/settings/controls dialogs.
-- `hooks/` owns keyboard input lifecycle and cleanup.
-- `utils/` safely reads and writes user preferences.
-- `tests/` covers pure simulation logic and primary interface states.
+- `src/data/levels/` contains declarative mission metadata, bounds, terrain profiles, deterministic rocks, objects, objectives, extraction, and starting resources.
+- `src/simulation/objectives.js` evaluates generic objective types and advances at most one step per event.
+- `src/simulation/levelRuntime.js` builds shared render/collision dimensions, contextual target telemetry, and explicit environmental effects.
+- `src/simulation/direction.js` owns compass conventions, inertial movement, and reverse-aware steering.
+- `src/simulation/collision.js` performs swept multi-contact sphere checks, tangent sliding, per-axis boundary projection, and proportional impact response without a large physics engine.
+- `src/store/useSimulationStore.js` is the authoritative Zustand state for level transitions, discovery, input, resources, statistics, and frame simulation.
+- `src/scene/` renders the current level and cameras; `src/components/` renders accessible HUD and dialog equivalents.
+- `src/utils/progression.js` and `preferences.js` keep unrelated persistent records separate and tolerate unavailable or malformed storage.
 
-The model is deliberately simplified: depth is derived from local Y position, pressure uses roughly one atmosphere per 10.06 metres, temperature attenuates with depth, and energy use combines propulsion, vertical thrust, systems, lights, and sonar. It is educational, not suitable for real navigation or engineering.
+### Adding a level
 
-## Graphics, accessibility, and assets
+Create a module in `src/data/levels/` with `createLevel`, `object`, and `objective`; provide a stable ID, metadata, starting state, world profile, objects, objective list, and extraction ID. Export it from `index.js`. Import-time validation rejects missing targets, invalid bounds, and terrain that cannot cover the play area. Reuse existing generic objective types unless a genuinely new interaction is required.
 
-Quality presets cap pixel density and adjust particles, antialiasing, and shadows. Preferences are stored defensively in `localStorage`. Reduced motion honors both the app setting and `prefers-reduced-motion`. All 3D geometry, materials, interface graphics, and effects are original procedural code. System fonts and procedural assets keep the simulator independent of runtime asset servers.
+## Accessibility and performance
+
+Dialogs trap and restore focus, level cards are semantic buttons, controls have accessible names, alerts include text, and essential telemetry/objectives have non-visual equivalents. Reduced motion and visible keyboard focus are supported. The Canvas remains a visual enhancement; a WebGL failure boundary keeps textual controls and status available.
+
+Quality modes adjust DPR, shadows, particles, and fog. Larger terrain uses a bounded segment count, seeded rock layouts are generated once per level, and rendering and collisions consume the same rock dimensions. Static world geometry does not subscribe to per-frame vehicle position; vehicle, camera, marine snow, and finite-lived sonar pulses update through refs. Frame deltas are capped after hidden-tab pauses.
+
+## Storage
+
+- `deep-sea-level-progress`: unlocked missions, completion, and best battery.
+- `deep-sea-tutorial-complete`: first-launch tutorial state.
+- Display and accessibility preferences use their existing independent preference record.
+
+Reset controls are available from paused settings. There is no production progression cheat.
 
 ## Known limitations
 
-- Physics and telemetry are illustrative rather than scientifically certified.
-- Collision uses practical bounds and hazard radii, not triangle-level mesh collision.
-- Sonar audio begins only after a button interaction due to browser autoplay rules.
-- Very small portrait screens use a compact HUD; landscape tablet or desktop is recommended.
+- Physics, pressure, temperature, thermal exposure, and energy consumption are educational approximations, not engineering models.
+- Collision uses swept spheres and world bounds rather than mesh-level contact physics.
+- Sonar sound requires a user interaction because of browser autoplay policy.
+- The 3D Canvas is not itself screen-reader playable; all essential mission information is duplicated as text.
+- Very small portrait screens use a compact HUD; landscape tablet or desktop remains the best experience.

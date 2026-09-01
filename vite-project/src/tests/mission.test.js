@@ -1,43 +1,41 @@
 import { describe, expect, it } from "vitest";
+import { LEVELS } from "../data/levels";
 import { progressMission } from "../simulation/mission";
 
+const level = LEVELS[1];
 const base = {
+  level,
   hull: 100,
   battery: 100,
-  depth: 3740,
-  position: [0, 20, 0],
+  depth: level.world.baseDepth,
+  position: level.start.position,
   sonarFired: false,
-  contacts: [],
-  samples: [],
+  discoveredObjects: [],
+  scannedObjects: [],
+  distanceTravelled: 0,
+  reverseDistance: 0,
 };
-describe("mission progression", () => {
-  it("progresses only when objectives are satisfied", () => {
+
+describe("mission compatibility entry point", () => {
+  it("progresses only when the active objective is satisfied", () => {
     expect(progressMission({ status: "running", step: 0 }, base).step).toBe(0);
     expect(
-      progressMission({ status: "running", step: 0 }, { ...base, depth: 3760 })
+      progressMission({ status: "running", step: 0 }, { ...base, depth: 3765 })
         .step,
     ).toBe(1);
-    expect(
-      progressMission(
-        { status: "running", step: 2 },
-        { ...base, sonarFired: true, contacts: ["wreck"] },
-      ).step,
-    ).toBe(3);
-    expect(
-      progressMission(
-        { status: "running", step: 4 },
-        { ...base, samples: ["a", "b", "c"] },
-      ).step,
-    ).toBe(5);
   });
-  it("completes at extraction", () =>
+
+  it("completes extraction and fails on depleted vital systems", () => {
     expect(
       progressMission(
-        { status: "running", step: 5 },
-        { ...base, position: [-7, 28, 12] },
+        { status: "running", step: level.objectives.length - 1 },
+        {
+          ...base,
+          position: level.objects.find((item) => item.id === level.extractionId)
+            .position,
+        },
       ).status,
-    ).toBe("complete"));
-  it("fails with depleted power or hull", () => {
+    ).toBe("complete");
     expect(
       progressMission({ status: "running", step: 2 }, { ...base, hull: 0 })
         .status,
@@ -46,34 +44,5 @@ describe("mission progression", () => {
       progressMission({ status: "running", step: 2 }, { ...base, battery: 0 })
         .status,
     ).toBe("failed");
-  });
-
-  it("can progress through the complete six-step mission", () => {
-    let mission = { status: "running", step: 0 };
-
-    mission = progressMission(mission, { ...base, depth: 3760 });
-    mission = progressMission(mission, {
-      ...base,
-      position: [0, 10, -38],
-    });
-    mission = progressMission(mission, {
-      ...base,
-      sonarFired: true,
-      contacts: ["wreck"],
-    });
-    mission = progressMission(mission, {
-      ...base,
-      position: [46, 8, -65],
-    });
-    mission = progressMission(mission, {
-      ...base,
-      samples: ["sample-a", "sample-b", "sample-c"],
-    });
-    mission = progressMission(mission, {
-      ...base,
-      position: [-7, 28, 12],
-    });
-
-    expect(mission).toEqual({ status: "complete", step: 6 });
   });
 });

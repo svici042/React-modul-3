@@ -2,8 +2,9 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
-import { OBJECTS, QUALITY, ROCKS } from "../simulation/constants";
+import { QUALITY } from "../simulation/constants";
 import { seabedHeight } from "../simulation/calculations";
+import { getRockDimensions } from "../data/levels/levelFactory";
 import {
   cockpitCameraOffset,
   dampAngle,
@@ -11,7 +12,10 @@ import {
   headingToForward,
   headingToModelYaw,
 } from "../simulation/direction";
-import { useSimulationStore } from "../store/useSimulationStore";
+import {
+  selectCurrentLevel,
+  useSimulationStore,
+} from "../store/useSimulationStore";
 
 const pseudoRandom = (index) => {
   const value = Math.sin(index * 999.91) * 43758.5453;
@@ -20,31 +24,51 @@ const pseudoRandom = (index) => {
 
 // --- Procedural seabed and ambient particles ---
 
-function Terrain() {
+function Terrain({ level }) {
+  const centerZ = (level.world.zMin + level.world.zMax) / 2;
+
   // Generate the seabed once. Frames update moving-object transforms instead
   // of rebuilding static geometry.
   const geometry = useMemo(() => {
-    const geo = new THREE.PlaneGeometry(270, 270, 42, 42);
+    const segments = level.world.terrainSize > 600 ? 62 : 52;
+    const geo = new THREE.PlaneGeometry(
+      level.world.terrainSize,
+      level.world.terrainSize,
+      segments,
+      segments,
+    );
     geo.rotateX(-Math.PI / 2);
     const attr = geo.attributes.position;
     for (let i = 0; i < attr.count; i++) {
-      attr.setY(i, seabedHeight(attr.getX(i), attr.getZ(i)));
+      attr.setY(
+        i,
+        Math.max(
+          level.world.minY,
+          seabedHeight(
+            attr.getX(i),
+            attr.getZ(i) + centerZ,
+            level.world.terrainSeed,
+          ) + level.world.minY,
+        ),
+      );
     }
     geo.computeVertexNormals();
     return geo;
-  }, []);
+  }, [centerZ, level]);
   useEffect(() => () => geometry.dispose(), [geometry]);
   return (
-    <mesh geometry={geometry} receiveShadow>
+    <mesh geometry={geometry} position={[0, 0, centerZ]} receiveShadow>
       <meshStandardMaterial color="#071b20" roughness={0.96} metalness={0.08} />
     </mesh>
   );
 }
 
 function Rock({ position, scale = 1 }) {
+  const { halfHeight } = getRockDimensions(scale);
+
   return (
     <mesh
-      position={position}
+      position={[position[0], position[1] + halfHeight, position[2]]}
       scale={[scale, scale * 1.8, scale]}
       castShadow
       receiveShadow
@@ -62,13 +86,17 @@ function MarineSnow({ count }) {
   // Deterministic positions remain stable across React re-renders.
   const positions = useMemo(
     () =>
-      Float32Array.from({ length: count * 3 }, (_, i) =>
-        i % 3 === 1 ? pseudoRandom(i) * 62 : (pseudoRandom(i) - 0.5) * 170,
+      Float32Array.from(
+        { length: count * 3 },
+        (_, i) => (pseudoRandom(i) - 0.5) * (i % 3 === 1 ? 62 : 170),
       ),
     [count],
   );
   useFrame((_, dt) => {
-    if (ref.current) ref.current.rotation.y += dt * 0.008;
+    if (!ref.current) return;
+    const position = useSimulationStore.getState().position;
+    ref.current.position.set(position[0], position[1], position[2]);
+    ref.current.rotation.y += dt * 0.008;
   });
   return (
     <points ref={ref}>
@@ -91,14 +119,14 @@ function MarineSnow({ count }) {
 function Submersible() {
   const group = useRef();
   const desiredPosition = useMemo(() => new THREE.Vector3(), []);
-  const position = useSimulationStore((s) => s.position);
-  const heading = useSimulationStore((s) => s.heading);
   const lights = useSimulationStore((s) => s.lights);
+  const initial = useSimulationStore.getState();
 
   // Exponential damping feels consistent across frame rates. A negative Y
   // rotation aligns the Three.js -Z bow with the compass heading convention.
   useFrame((_, dt) => {
     if (!group.current) return;
+    const { position, heading } = useSimulationStore.getState();
 
     desiredPosition.set(...position);
     group.current.position.lerp(
@@ -113,7 +141,7 @@ function Submersible() {
     );
   });
   return (
-    <group ref={group} position={position}>
+    <group ref={group} position={initial.position}>
       <mesh castShadow rotation={[Math.PI / 2, 0, 0]} scale={[1.8, 1.8, 3.2]}>
         <capsuleGeometry args={[1.15, 2.3, 8, 18]} />
         <meshStandardMaterial
@@ -152,21 +180,37 @@ function Submersible() {
             <cylinderGeometry args={[0.22, 0.28, 0.55, 12]} />
             <meshStandardMaterial color="#15252a" metalness={0.8} />
           </mesh>
-          {lights > 0 && (
-            <spotLight
-              color={lights === 2 ? "#d9ffff" : "#83e5e6"}
-              intensity={lights === 2 ? 45 : 25}
-              angle={0.28}
-              penumbra={0.75}
-              distance={55}
-              target-position={[0, -5, -30]}
-              castShadow
-            />
-          )}
+          {lights > 0 && <Headlight intensity={lights === 2 ? 45 : 25} />}
         </group>
       ))}
       <Bubbles />
     </group>
+  );
+}
+
+function Headlight({ intensity }) {
+  const light = useRef();
+  const target = useRef();
+
+  // A local target inherits vehicle rotation, keeping each beam aligned with
+  // the bow instead of pointing toward a fixed world-space origin.
+  useEffect(() => {
+    if (light.current && target.current) light.current.target = target.current;
+  }, []);
+
+  return (
+    <>
+      <spotLight
+        ref={light}
+        color={intensity > 30 ? "#d9ffff" : "#83e5e6"}
+        intensity={intensity}
+        angle={0.28}
+        penumbra={0.75}
+        distance={55}
+        castShadow
+      />
+      <object3D ref={target} position={[0, -2, -30]} />
+    </>
   );
 }
 
@@ -201,7 +245,7 @@ function Bubbles() {
 
 // --- Mission objects and world-space markers ---
 
-function Beacon({ object }) {
+function Beacon({ object, revealed, identified }) {
   const color =
     object.type === "hazard"
       ? "#e99b4a"
@@ -210,10 +254,10 @@ function Beacon({ object }) {
         : "#55f0d0";
   return (
     <group position={object.position}>
-      {object.type === "hazard" ? (
+      {object.visual === "thermalVent" ? (
         <>
           <Rock position={[0, 0, 0]} scale={3} />
-          <pointLight color="#ff6b25" intensity={20} distance={18} />
+          <pointLight color={object.color} intensity={20} distance={18} />
           {[0, 1, 2].map((i) => (
             <mesh key={i} position={[(i - 1) * 2.2, 4 + i, 0]}>
               <coneGeometry args={[1.1, 6, 10]} />
@@ -225,7 +269,9 @@ function Beacon({ object }) {
             </mesh>
           ))}
         </>
-      ) : object.id === "wreck" ? (
+      ) : object.visual === "ridge" ? (
+        <Rock position={[0, 0, 0]} scale={object.visualScale} />
+      ) : ["wreck", "drone"].includes(object.type) ? (
         <Wreck />
       ) : (
         <>
@@ -245,14 +291,16 @@ function Beacon({ object }) {
           />
         </>
       )}
-      <Html
-        center
-        distanceFactor={13}
-        position={[0, 5, 0]}
-        className="world-label"
-      >
-        <span>{object.label}</span>
-      </Html>
+      {revealed && (
+        <Html
+          center
+          distanceFactor={13}
+          position={[0, 5, 0]}
+          className="world-label"
+        >
+          <span>{identified ? object.label : "UNKNOWN CONTACT"}</span>
+        </Html>
+      )}
     </group>
   );
 }
@@ -283,26 +331,44 @@ function Wreck() {
 // --- Sonar visualization and camera controllers ---
 
 function SonarPulse() {
-  const pulse = useSimulationStore((s) => s.sonarPulse);
-  const position = useSimulationStore((s) => s.position);
+  const emission = useSimulationStore((s) => s.sonarEmission);
+  const reducedMotion = useSimulationStore((s) => s.preferences.reducedMotion);
   const ref = useRef();
-  useEffect(() => {
-    if (ref.current) ref.current.scale.setScalar(0.2);
-  }, [pulse]);
+  const material = useRef();
+  const elapsed = useRef(0);
+  const activeId = useRef(null);
+
   useFrame((_, dt) => {
-    if (ref.current && ref.current.scale.x < 28) {
-      ref.current.scale.addScalar(dt * 12);
+    if (!emission || !ref.current || !material.current) return;
+    if (activeId.current !== emission.id) {
+      activeId.current = emission.id;
+      elapsed.current = 0;
+      ref.current.scale.setScalar(0.2);
+      material.current.opacity = 0.42;
+    }
+    const duration = reducedMotion ? 0.55 : 1.35;
+    elapsed.current += dt;
+    const progress = Math.min(1, elapsed.current / duration);
+    const visualRange = emission.range * (reducedMotion ? 0.35 : 1);
+    ref.current.scale.setScalar(0.2 + visualRange * progress);
+    material.current.opacity = 0.42 * (1 - progress);
+    if (progress >= 1) {
+      useSimulationStore.getState().clearSonarEmission(emission.id);
     }
   });
+
+  if (!emission) return null;
+
   return (
     <mesh
-      key={pulse}
+      key={emission.id}
       ref={ref}
-      position={position}
+      position={emission.position}
       rotation={[Math.PI / 2, 0, 0]}
     >
       <ringGeometry args={[0.96, 1, 64]} />
       <meshBasicMaterial
+        ref={material}
         color="#59f1d4"
         transparent
         opacity={0.45}
@@ -314,19 +380,31 @@ function SonarPulse() {
 }
 
 function SceneController() {
-  const tick = useSimulationStore((s) => s.tick);
   const cameraMode = useSimulationStore((s) => s.preferences.camera);
-  const position = useSimulationStore((s) => s.position);
-  const heading = useSimulationStore((s) => s.heading);
   const { camera } = useThree();
+  const sceneRevision = useSimulationStore((s) => s.sceneRevision);
   const desired = useMemo(() => new THREE.Vector3(), []);
   const lookTarget = useMemo(() => new THREE.Vector3(), []);
+
+  // Snap once after a level change so camera damping cannot travel across the
+  // previous mission's world before settling behind the new starting point.
+  useEffect(() => {
+    const current = useSimulationStore.getState();
+    const offset = followCameraOffset(current.heading);
+    camera.position.set(
+      current.position[0] + offset[0],
+      current.position[1] + offset[1],
+      current.position[2] + offset[2],
+    );
+  }, [camera, sceneRevision]);
 
   // Advance the simulation before moving the camera smoothly. Orbit mode
   // delegates camera input to `OrbitControls` instead.
   useFrame((_, dt) => {
-    tick(dt);
+    useSimulationStore.getState().tick(dt);
     if (cameraMode === "orbit") return;
+
+    const { position, heading } = useSimulationStore.getState();
 
     const offset =
       cameraMode === "cockpit"
@@ -351,19 +429,27 @@ function SceneController() {
     camera.lookAt(lookTarget);
   });
 
-  return cameraMode === "orbit" ? <OrbitCamera position={position} /> : null;
+  return cameraMode === "orbit" ? (
+    <OrbitCamera sceneRevision={sceneRevision} />
+  ) : null;
 }
 
-function OrbitCamera({ position }) {
+function OrbitCamera({ sceneRevision }) {
   const controls = useRef();
-  const [desiredTarget] = useState(() => new THREE.Vector3(...position));
+  const [desiredTarget] = useState(() => new THREE.Vector3());
+
+  useEffect(() => {
+    const position = useSimulationStore.getState().position;
+    desiredTarget.set(...position);
+    if (controls.current) controls.current.target.copy(desiredTarget);
+  }, [desiredTarget, sceneRevision]);
 
   useFrame((_, dt) => {
     if (!controls.current) {
       return;
     }
 
-    desiredTarget.set(...position);
+    desiredTarget.set(...useSimulationStore.getState().position);
     controls.current.target.lerp(
       desiredTarget,
       1 - Math.exp(-10 * Math.min(dt, 0.05)),
@@ -385,23 +471,34 @@ function OrbitCamera({ position }) {
 
 function World() {
   const quality = useSimulationStore((s) => s.preferences.quality);
+  const level = useSimulationStore(selectCurrentLevel);
+  const discovered = useSimulationStore((s) => s.discoveredObjects);
+  const identified = useSimulationStore((s) => s.identifiedObjects);
 
   // Quality profiles control visibility, particle density, shadows, and DPR.
   return (
     <>
-      <fog attach="fog" args={["#031116", 12, quality === "low" ? 70 : 95]} />
-      <ambientLight intensity={0.32} color="#3c8f92" />
+      <fog
+        attach="fog"
+        args={[
+          level.world.waterColor,
+          level.world.fogNear,
+          quality === "low" ? level.world.fogFar * 0.78 : level.world.fogFar,
+        ]}
+      />
+      <ambientLight intensity={0.32} color={level.world.ambient} />
       <hemisphereLight color="#174a53" groundColor="#010407" intensity={0.7} />
-      <Terrain />
-      {ROCKS.map((rock) => (
-        <Rock
-          key={rock.id}
-          position={[rock.x, seabedHeight(rock.x, rock.z), rock.z]}
-          scale={rock.scale}
-        />
+      <Terrain level={level} />
+      {level.rocks.map((rock) => (
+        <Rock key={rock.id} position={rock.position} scale={rock.scale} />
       ))}
-      {OBJECTS.map((object) => (
-        <Beacon object={object} key={object.id} />
+      {level.objects.map((object) => (
+        <Beacon
+          object={object}
+          revealed={!object.hidden || discovered.includes(object.id)}
+          identified={!object.hidden || identified.includes(object.id)}
+          key={object.id}
+        />
       ))}
       <MarineSnow count={QUALITY[quality].particles} />
       <Submersible />
@@ -413,15 +510,21 @@ function World() {
 
 export default function UnderwaterScene() {
   const quality = useSimulationStore((s) => s.preferences.quality);
+  const level = useSimulationStore(selectCurrentLevel);
   return (
     <Canvas
       className="ocean-canvas"
       shadows={QUALITY[quality].shadows}
       dpr={[1, QUALITY[quality].dpr]}
-      camera={{ position: [0, 34, 28], fov: 58, near: 0.1, far: 300 }}
+      camera={{
+        position: [0, 34, 28],
+        fov: 58,
+        near: 0.1,
+        far: Math.max(700, level.world.terrainSize * 1.4),
+      }}
       gl={{ antialias: quality !== "low", powerPreference: "high-performance" }}
     >
-      <color attach="background" args={["#02090d"]} />
+      <color attach="background" args={[level.world.waterColor]} />
       <Suspense fallback={null}>
         <World />
       </Suspense>

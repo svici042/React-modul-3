@@ -1,7 +1,9 @@
-import { OBJECTS, SONAR_RANGE } from "../../simulation/constants";
 import { bearingToContact, distance3 } from "../../simulation/calculations";
 import { degreesToRadians } from "../../simulation/direction";
-import { useSimulationStore } from "../../store/useSimulationStore";
+import {
+  selectCurrentLevel,
+  useSimulationStore,
+} from "../../store/useSimulationStore";
 
 // --- User-triggered sonar audio ---
 
@@ -30,9 +32,11 @@ function pingSound() {
 // --- World-connected sonar instrument ---
 
 export default function Sonar() {
+  const level = useSimulationStore(selectCurrentLevel);
   const position = useSimulationStore((s) => s.position);
   const heading = useSimulationStore((s) => s.heading);
   const contacts = useSimulationStore((s) => s.contacts);
+  const identified = useSimulationStore((s) => s.identifiedObjects);
   const cooldown = useSimulationStore((s) => s.sonarCooldown);
   const pulse = useSimulationStore((s) => s.sonarPulse);
   const muted = useSimulationStore((s) => s.preferences.muted);
@@ -51,9 +55,9 @@ export default function Sonar() {
         <i className="sonar-line north" />
         <i className="sonar-line east" />
         <span className="north-label">N</span>
-        <span className="range-label">{SONAR_RANGE}m</span>
+        <span className="range-label">{level.sonarRange}m</span>
         {contacts.map((id) => {
-          const object = OBJECTS.find((item) => item.id === id);
+          const object = level.objects.find((item) => item.id === id);
           if (!object) {
             return null;
           }
@@ -67,29 +71,28 @@ export default function Sonar() {
 
           // Convert range and bearing into percentage-based CSS coordinates.
           // 50/50 is the center; 43% leaves padding inside the circular edge.
-          const radius = (distance / SONAR_RANGE) * 43;
+          const radius = (distance / level.sonarRange) * 43;
           const x = 50 + Math.sin(angle) * radius;
           const y = 50 - Math.cos(angle) * radius;
           return (
             <i
               key={id}
-              title={`${object.label}: ${distance.toFixed(0)} m`}
-              className={`contact ${object.type}`}
+              title={`${identified.includes(object.id) ? object.label : "Unknown contact"}: ${distance.toFixed(0)} m`}
+              className={`contact ${identified.includes(object.id) ? object.type : "unknown"}`}
               style={{ left: `${x}%`, top: `${y}%` }}
             >
               <span className="sr-only">
-                {object.label}, {distance.toFixed(0)} metres
+                {identified.includes(object.id)
+                  ? object.label
+                  : "Unknown contact"}
+                , {distance.toFixed(0)} metres
               </span>
             </i>
           );
         })}
         <i className="ownship" />
       </div>
-      <button
-        className="ping-button"
-        onClick={fire}
-        aria-disabled={cooldown > 0}
-      >
+      <button className="ping-button" onClick={fire} disabled={cooldown > 0}>
         PING <kbd>R</kbd>
       </button>
     </section>

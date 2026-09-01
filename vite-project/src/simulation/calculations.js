@@ -50,20 +50,31 @@ export const inSonarRange = (a, b, range = SONAR_RANGE) =>
 export const sonarReady = (cooldown) => cooldown <= 0;
 export const tickCooldown = (cooldown, dt) =>
   clamp(cooldown - dt, 0, SONAR_COOLDOWN);
-export const seabedHeight = (x, z) =>
-  2.5 + Math.sin(x * 0.055) * 1.7 + Math.cos(z * 0.04) * 1.25;
+export const seabedHeight = (x, z, seed = 1) =>
+  2.5 +
+  Math.sin((x + seed * 17) * 0.028) * 2.4 +
+  Math.cos((z - seed * 11) * 0.023) * 1.9 +
+  Math.sin((x + z) * 0.011 + seed) * 1.2;
 
 // --- World-space helpers ---
 
 // Keep the vehicle inside the mission area and above the procedural seabed.
-export function constrainPosition(position) {
+export function constrainPosition(position, world = WORLD) {
   const [x, y, z] = position;
-  const floor = seabedHeight(x, z) + WORLD.minY;
-  return [
-    clamp(x, -WORLD.bounds, WORLD.bounds),
-    clamp(y, floor, WORLD.maxY),
-    clamp(z, -WORLD.bounds, 25),
-  ];
+  const xBound = world.xBound ?? world.bounds;
+  const zMin = world.zMin ?? -world.bounds;
+  const zMax = world.zMax ?? 25;
+  const constrainedX = clamp(x, -xBound, xBound);
+  const constrainedZ = clamp(z, zMin, zMax);
+
+  // Sample the floor at the constrained coordinates. Using an out-of-bounds
+  // attempted point could otherwise place the vehicle below the visible edge.
+  const floor = Math.max(
+    world.minY,
+    seabedHeight(constrainedX, constrainedZ, world.terrainSeed) + world.minY,
+  );
+
+  return [constrainedX, clamp(y, floor, world.maxY), constrainedZ];
 }
 
 // Convert world coordinates into an angle relative to the vehicle's heading.

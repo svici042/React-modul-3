@@ -24,6 +24,42 @@ const motion = (overrides = {}) =>
   });
 
 describe("shared direction convention", () => {
+  it.each([
+    ["forward-left", 4, { forward: true, left: true }, "decrease"],
+    ["forward-right", 4, { forward: true, right: true }, "increase"],
+    ["reverse-left", -4, { backward: true, left: true }, "increase"],
+    ["reverse-right", -4, { backward: true, right: true }, "decrease"],
+  ])("applies intuitive %s steering", (_, speed, input, direction) => {
+    const result = motion({ heading: 180, speed, input });
+
+    if (direction === "increase") expect(result.heading).toBeGreaterThan(180);
+    else expect(result.heading).toBeLessThan(180);
+  });
+
+  it("remembers reverse steering inside the near-zero dead zone", () => {
+    const result = motion({
+      speed: -0.05,
+      movementDirection: -1,
+      input: { left: true },
+      heading: 180,
+    });
+
+    expect(result.heading).toBeGreaterThan(180);
+    expect(result.movementDirection).toBe(-1);
+  });
+
+  it("uses intended reverse direction while changing through zero", () => {
+    const result = motion({
+      speed: 0.1,
+      movementDirection: 1,
+      input: { backward: true, right: true },
+      heading: 180,
+    });
+
+    expect(result.heading).toBeLessThan(180);
+    expect(result.movementDirection).toBe(-1);
+  });
+
   it("moves W at heading 0 toward world -Z", () => {
     const result = motion({ input: { forward: true } });
 
