@@ -1,10 +1,40 @@
 {
-  "name": "react-modul-3",
+  "name": "deep-sea-control",
   "private": true,
+  "version": "1.0.0",
+  "description": "An educational React and Three.js submersible simulator.",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
-    "dev": "npm --prefix vite-project run dev -- --host 0.0.0.0",
-    "build": "npm --prefix vite-project run build",
-    "preview": "npm --prefix vite-project run preview -- --host 0.0.0.0",
-    "start": "npm --prefix vite-project run dev -- --host 0.0.0.0"
+    "dev": "vite",
+    "build": "vite build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "oxlint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@react-three/drei": "^10.7.8",
+    "@react-three/fiber": "^9.7.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "three": "^0.185.1",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.1.0",
+    "jsdom": "^29.1.1",
+    "oxlint": "^1.79.0",
+    "prettier": "^3.9.6",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
   }
 }

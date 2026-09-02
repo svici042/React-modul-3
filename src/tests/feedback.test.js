@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { LEVELS } from "../data/levels";
 import { useSimulationStore } from "../store/useSimulationStore";
 
 describe("gameplay feedback", () => {
@@ -45,5 +46,32 @@ describe("gameplay feedback", () => {
     expect(useSimulationStore.getState().scanNearby()).toBe(true);
     expect(useSimulationStore.getState().notice).toContain("SCAN COMPLETE");
     expect(useSimulationStore.getState().samples).toContain("hull-fracture");
+  });
+
+  it("creates sonar emissions only for successful pings and clears them", () => {
+    const training = LEVELS[0];
+    useSimulationStore.setState({
+      levelId: training.id,
+      mission: { status: "running", step: 0, failureReason: "" },
+      position: [3, 20, 4],
+      sonarCooldown: 0,
+      sonarEmission: null,
+      battery: 100,
+    });
+
+    expect(useSimulationStore.getState().fireSonar()).toBe(true);
+    expect(useSimulationStore.getState().sonarEmission).toMatchObject({
+      position: [3, 20, 4],
+      range: training.sonarRange,
+    });
+    const emissionId = useSimulationStore.getState().sonarEmission.id;
+    useSimulationStore.getState().clearSonarEmission(emissionId + 1);
+    expect(useSimulationStore.getState().sonarEmission.id).toBe(emissionId);
+    useSimulationStore.getState().clearSonarEmission(emissionId);
+    expect(useSimulationStore.getState().sonarEmission).toBeNull();
+
+    useSimulationStore.setState({ battery: 0.5, sonarCooldown: 0 });
+    expect(useSimulationStore.getState().fireSonar()).toBe(false);
+    expect(useSimulationStore.getState().sonarEmission).toBeNull();
   });
 });

@@ -18,7 +18,7 @@ dist-ssr
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 coverage/
 *.suo
@@ -26,3 +26,5 @@ coverage/
 *.njsproj
 *.sln
 *.sw?
+*.bak
+*.tmp
